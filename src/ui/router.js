@@ -2,7 +2,7 @@ import { renderDashboard } from "./screens/dashboard.js";
 import { renderTasks, attachTaskEvents } from "./screens/tasks.js";
 import { renderAttendance, attachAttendanceEvents } from "./screens/attendance.js";
 import { renderTimetable } from "./screens/timetable.js";
-import { renderSettings } from "./screens/settings.js";
+import { renderSettings, attachSettingsEvents } from "./screens/settings.js";
 
 export function renderRoute(route) {
   const content = document.getElementById("content");
@@ -29,6 +29,7 @@ export function renderRoute(route) {
 
     case "settings":
       content.innerHTML = renderSettings();
+      attachSettingsEvents;
       break;
 
     default:
