@@ -10,12 +10,16 @@ function today() {
   return new Date().toISOString().split("T")[0];
 }
 
+function subjectName(id) {
+  return SUBJECTS.find((s) => s.id === id)?.name || id;
+}
+
 export function renderAttendance() {
   const state = getAppState();
   const records = state.attendance || [];
   const date = today();
 
-  const list = SUBJECTS.map((subj) => {
+  const todayList = SUBJECTS.map((subj) => {
     const alreadyMarked = records.find(
       (r) => r.subjectId === subj.id && r.date === date
     );
@@ -35,11 +39,46 @@ export function renderAttendance() {
     `;
   }).join("");
 
+  // Group history by date (excluding today)
+  const historyByDate = records
+    .filter((r) => r.date !== date)
+    .reduce((acc, record) => {
+      acc[record.date] = acc[record.date] || [];
+      acc[record.date].push(record);
+      return acc;
+    }, {});
+
+  const historyHtml = Object.keys(historyByDate)
+    .sort()
+    .reverse()
+    .map(
+      (d) => `
+        <h4>${d}</h4>
+        <ul>
+          ${historyByDate[d]
+            .map(
+              (r) => `
+                <li>
+                  ${subjectName(r.subjectId)} — ${r.status.toUpperCase()}
+                </li>
+              `
+            )
+            .join("")}
+        </ul>
+      `
+    )
+    .join("");
+
   return `
     <h2>Attendance (${date})</h2>
     <ul id="attendance-list">
-      ${list}
+      ${todayList}
     </ul>
+
+    <hr />
+
+    <h3>Attendance History</h3>
+    ${historyHtml || "<p>No past records.</p>"}
   `;
 }
 
