@@ -3,6 +3,7 @@ import { loadData, saveData } from "./storageEngine.js";
 export const defaultAppState = {
   meta: null,
   userProfile: null,
+  subjects: [],
   tasks: [],
   timetables: [],
   attendance: [],

@@ -1,7 +1,7 @@
 import { renderDashboard } from "./screens/dashboard.js";
 import { renderTasks, attachTaskEvents } from "./screens/tasks.js";
 import { renderAttendance, attachAttendanceEvents } from "./screens/attendance.js";
-import { renderTimetable } from "./screens/timetable.js";
+import { renderTimetable, attachTimetableEvents } from "./screens/timetable.js";
 import { renderSettings, attachSettingsEvents } from "./screens/settings.js";
 
 export function renderRoute(route) {
@@ -25,7 +25,9 @@ export function renderRoute(route) {
 
     case "timetable":
       content.innerHTML = renderTimetable();
+      attachTimetableEvents();
       break;
+
 
     case "settings":
       content.innerHTML = renderSettings();
