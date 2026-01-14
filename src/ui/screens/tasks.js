@@ -7,8 +7,11 @@ export function renderTasks() {
   const taskList = tasks
     .map(
       (task) => `
-        <li>
-          ${task.title} ${task.completed ? "✅" : ""}
+        <li 
+          data-id="${task.id}" 
+          style="cursor:pointer; ${task.completed ? "text-decoration: line-through;" : ""}"
+        >
+          ${task.completed ? "✅" : "⬜"} ${task.title}
         </li>
       `
     )
@@ -30,7 +33,7 @@ export function renderTasks() {
     ${
       tasks.length === 0
         ? "<p>No tasks yet.</p>"
-        : `<ul>${taskList}</ul>`
+        : `<ul id="task-list">${taskList}</ul>`
     }
   `;
 }
@@ -39,32 +42,56 @@ export function renderTasks() {
  * Attach events after rendering
  */
 export function attachTaskEvents() {
+  // Add task
   const form = document.getElementById("task-form");
-  if (!form) return;
+  if (form) {
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
 
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
+      const input = document.getElementById("task-input");
+      const title = input.value.trim();
+      if (!title) return;
 
-    const input = document.getElementById("task-input");
-    const title = input.value.trim();
-    if (!title) return;
+      const state = getAppState();
 
-    const state = getAppState();
+      state.tasks.push({
+        id: Date.now().toString(),
+        title,
+        completed: false,
+        createdAt: Date.now(),
+        archived: false
+      });
 
-    state.tasks.push({
-      id: Date.now().toString(),
-      title,
-      completed: false,
-      createdAt: Date.now(),
-      archived: false
+      setAppState(state);
+      input.value = "";
+
+      rerender();
     });
+  }
 
-    setAppState(state);
+  // Toggle complete
+  const list = document.getElementById("task-list");
+  if (list) {
+    list.addEventListener("click", (e) => {
+      const li = e.target.closest("li");
+      if (!li) return;
 
-    input.value = "";
+      const taskId = li.dataset.id;
+      const state = getAppState();
 
-    // re-render screen
-    document.getElementById("content").innerHTML = renderTasks();
-    attachTaskEvents();
-  });
+      const task = state.tasks.find((t) => t.id === taskId);
+      if (!task) return;
+
+      task.completed = !task.completed;
+      setAppState(state);
+
+      rerender();
+    });
+  }
+}
+
+function rerender() {
+  const content = document.getElementById("content");
+  content.innerHTML = renderTasks();
+  attachTaskEvents();
 }
