@@ -1,30 +1,35 @@
+import { renderDashboard } from "./screens/dashboard.js";
+import { renderTasks } from "./screens/tasks.js";
+import { renderAttendance } from "./screens/attendance.js";
+import { renderTimetable } from "./screens/timetable.js";
+import { renderSettings } from "./screens/settings.js";
+
 export function renderRoute(route) {
   const content = document.getElementById("content");
-
   if (!content) return;
 
   switch (route) {
     case "dashboard":
-      content.innerHTML = "<h2>Dashboard</h2><p>Welcome to Sarasva.</p>";
+      content.innerHTML = renderDashboard();
       break;
 
     case "tasks":
-      content.innerHTML = "<h2>Tasks</h2><p>Your tasks will appear here.</p>";
+      content.innerHTML = renderTasks();
       break;
 
     case "attendance":
-      content.innerHTML = "<h2>Attendance</h2><p>Attendance tracking area.</p>";
+      content.innerHTML = renderAttendance();
       break;
 
     case "timetable":
-      content.innerHTML = "<h2>Timetable</h2><p>Your class schedule.</p>";
+      content.innerHTML = renderTimetable();
       break;
 
     case "settings":
-      content.innerHTML = "<h2>Settings</h2><p>App preferences.</p>";
+      content.innerHTML = renderSettings();
       break;
 
     default:
-      content.innerHTML = "<h2>Dashboard</h2><p>Welcome to Sarasva.</p>";
+      content.innerHTML = renderDashboard();
   }
 }
