@@ -2,16 +2,20 @@ import { getAppState, setAppState } from "../../storage/appState.js";
 
 export function renderTasks() {
   const state = getAppState();
-  const tasks = state.tasks || [];
+  const tasks = (state.tasks || []).filter((t) => !t.archived);
 
   const taskList = tasks
     .map(
       (task) => `
         <li 
           data-id="${task.id}" 
-          style="cursor:pointer; ${task.completed ? "text-decoration: line-through;" : ""}"
+          style="display:flex; justify-content:space-between; cursor:pointer;
+                 ${task.completed ? "text-decoration: line-through;" : ""}"
         >
-          ${task.completed ? "✅" : "⬜"} ${task.title}
+          <span class="task-title">
+            ${task.completed ? "✅" : "⬜"} ${task.title}
+          </span>
+          <button data-action="archive">🗑️</button>
         </li>
       `
     )
@@ -58,18 +62,17 @@ export function attachTaskEvents() {
         id: Date.now().toString(),
         title,
         completed: false,
-        createdAt: Date.now(),
-        archived: false
+        archived: false,
+        createdAt: Date.now()
       });
 
       setAppState(state);
       input.value = "";
-
       rerender();
     });
   }
 
-  // Toggle complete
+  // Toggle complete OR archive
   const list = document.getElementById("task-list");
   if (list) {
     list.addEventListener("click", (e) => {
@@ -78,13 +81,20 @@ export function attachTaskEvents() {
 
       const taskId = li.dataset.id;
       const state = getAppState();
-
       const task = state.tasks.find((t) => t.id === taskId);
       if (!task) return;
 
+      // Archive
+      if (e.target.dataset.action === "archive") {
+        task.archived = true;
+        setAppState(state);
+        rerender();
+        return;
+      }
+
+      // Toggle complete
       task.completed = !task.completed;
       setAppState(state);
-
       rerender();
     });
   }
