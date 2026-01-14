@@ -1,3 +1,4 @@
+import { renderLayout } from "./ui/layout.js";
 import { getAppState, setAppState } from "./storage/appState.js";
 import { migrateData } from "./storage/migrationManager.js";
 import { AppMeta } from "./models/appMeta.js";
@@ -20,10 +21,7 @@ function initApp() {
   state.meta.lastUpdatedAt = Date.now();
   setAppState(state);
 
-  document.getElementById("app").innerHTML = `
-    <h1>Sarasva</h1>
-    <p>App initialized successfully.</p>
-  `;
+  document.getElementById("app").innerHTML = renderLayout();
 }
 
 initApp();
