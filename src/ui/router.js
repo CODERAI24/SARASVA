@@ -29,7 +29,7 @@ export function renderRoute(route) {
 
     case "settings":
       content.innerHTML = renderSettings();
-      attachSettingsEvents;
+      attachSettingsEvents();
       break;
 
     default:
