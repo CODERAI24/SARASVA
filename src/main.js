@@ -1,3 +1,4 @@
+import { renderRoute } from "./ui/router.js";
 import { renderLayout } from "./ui/layout.js";
 import { getAppState, setAppState } from "./storage/appState.js";
 import { migrateData } from "./storage/migrationManager.js";
@@ -22,6 +23,16 @@ function initApp() {
   setAppState(state);
 
   document.getElementById("app").innerHTML = renderLayout();
+
+  function handleRouteChange() {
+  const route = window.location.hash.replace("#", "") || "dashboard";
+  renderRoute(route);
+  }
+
+  window.addEventListener("hashchange", handleRouteChange);
+  handleRouteChange();
+
+  
 }
 
 initApp();
