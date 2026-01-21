@@ -110,11 +110,14 @@ export function renderAttendance() {
                 <strong>${subj.name}</strong>
                 ${
                   alreadyMarked
-                    ? `<span> — ${alreadyMarked.status.toUpperCase()}</span>`
+                    ? alreadyMarked.status === "present"
+                        ? `<span class="attendance-present"> — PRESENT</span>`
+                        : `<span class="attendance-absent"> — ABSENT</span>`
                     : `
                       <button data-subject="${subj.id}" data-status="present">Present</button>
                       <button data-subject="${subj.id}" data-status="absent">Absent</button>
                     `
+
                 }
               </li>
             `;
