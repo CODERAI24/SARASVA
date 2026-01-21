@@ -142,7 +142,7 @@ export function renderAttendance() {
         <li>
           <strong>${s.name}</strong><br/>
           Attendance: ${stats.percent}% 
-          <span style="color:${z === "safe" ? "green" : "red"}">
+          <span class="badge ${z}">
             (${z.toUpperCase()})
           </span><br/>
           ${prediction}
@@ -156,27 +156,33 @@ export function renderAttendance() {
   const overallZone = zone(overall.percent);
 
   return `
-    <h2>Attendance (${date})</h2>
+    <div class="card">
+      <h2>Attendance (${date})</h2>
 
-    <ul id="attendance-list">
-      ${todayList}
-    </ul>
+      <ul id="attendance-list">
+        ${todayList}
+      </ul>
 
-    <hr />
+      <hr />
 
-    <h3>Attendance Intelligence</h3>
+      <h3>Attendance Intelligence</h3>
 
-    <p>
-      Overall:
-      <strong style="color:${overallZone === "safe" ? "green" : "red"}">
-        ${overall.percent}% (${overallZone.toUpperCase()})
-      </strong>
-    </p>
+      <p>
+        Overall:
+        <strong>
+          ${overall.percent}%
+          <span class="badge ${overallZone}">
+            ${overallZone.toUpperCase()}
+          </span>
+        </strong>
+      </p>
 
-    <ul>
-      ${subjectStatsHtml}
-    </ul>
+      <ul>
+        ${subjectStatsHtml}
+      </ul>
+    </div>
   `;
+
 }
 
 /* -------------------- Events -------------------- */
