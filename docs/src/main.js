@@ -1,3 +1,5 @@
+console.log(" Sarasva main.js loaded");
+
 import { getAppState, setAppState } from "./storage/appState.js";
 import { migrateData } from "./storage/migrationManager.js";
 import { AppMeta } from "./models/appMeta.js";
