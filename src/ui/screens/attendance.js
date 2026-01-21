@@ -32,7 +32,6 @@ function subjectsScheduledToday(state) {
   const timetables = state.timetables || [];
   const activeTT = timetables.find((t) => t.active);
 
-  // If no timetable, allow all active subjects
   if (!activeTT) {
     return activeSubjects(state).map((s) => s.id);
   }
@@ -44,7 +43,7 @@ function subjectsScheduledToday(state) {
     .map((slot) => slot.subjectId);
 }
 
-/* ---------------- Attendance Calculations ---------------- */
+/* ---------------- Attendance Math ---------------- */
 
 function calculateSubjectStats(records, subjectId) {
   const subjectRecords = records.filter((r) => r.subjectId === subjectId);
@@ -67,6 +66,23 @@ function zone(percent) {
   return percent >= 75 ? "safe" : "risk";
 }
 
+/* 🔮 Prediction logic */
+function classesNeededFor75(total, present) {
+  if (total === 0) return 0;
+
+  let needed = 0;
+  let t = total;
+  let p = present;
+
+  while (Math.round((p / t) * 100) < 75) {
+    t += 1;
+    p += 1;
+    needed += 1;
+  }
+
+  return needed;
+}
+
 /* -------------------- UI -------------------- */
 
 export function renderAttendance() {
@@ -79,47 +95,60 @@ export function renderAttendance() {
     allowedSubjectIds.includes(s.id)
   );
 
-  /* Today marking section */
-  const todayList = subjectsToday.length === 0
-    ? `<li>No classes scheduled today.</li>`
-    : subjectsToday.map((subj) => {
-        const alreadyMarked = records.find(
-          (r) => r.subjectId === subj.id && r.date === date
-        );
+  /* Today marking */
+  const todayList =
+    subjectsToday.length === 0
+      ? `<li>No classes scheduled today.</li>`
+      : subjectsToday
+          .map((subj) => {
+            const alreadyMarked = records.find(
+              (r) => r.subjectId === subj.id && r.date === date
+            );
 
-        return `
-          <li>
-            <strong>${subj.name}</strong>
-            ${
-              alreadyMarked
-                ? `<span> — ${alreadyMarked.status.toUpperCase()}</span>`
-                : `
-                  <button data-subject="${subj.id}" data-status="present">Present</button>
-                  <button data-subject="${subj.id}" data-status="absent">Absent</button>
-                `
-            }
-          </li>
-        `;
-      }).join("");
+            return `
+              <li>
+                <strong>${subj.name}</strong>
+                ${
+                  alreadyMarked
+                    ? `<span> — ${alreadyMarked.status.toUpperCase()}</span>`
+                    : `
+                      <button data-subject="${subj.id}" data-status="present">Present</button>
+                      <button data-subject="${subj.id}" data-status="absent">Absent</button>
+                    `
+                }
+              </li>
+            `;
+          })
+          .join("");
 
-  /* Subject-wise stats */
+  /* Subject stats + prediction */
   const subjectStatsHtml = activeSubjects(state)
     .map((s) => {
       const stats = calculateSubjectStats(records, s.id);
       const z = zone(stats.percent);
 
+      const prediction =
+        z === "risk"
+          ? `<em>Need ${classesNeededFor75(
+              stats.total,
+              stats.present
+            )} consecutive present classes to reach 75%</em>`
+          : `<em>On track 👍</em>`;
+
       return `
         <li>
-          ${s.name}: ${stats.percent}%
-          <strong style="color:${z === "safe" ? "green" : "red"}">
+          <strong>${s.name}</strong><br/>
+          Attendance: ${stats.percent}% 
+          <span style="color:${z === "safe" ? "green" : "red"}">
             (${z.toUpperCase()})
-          </strong>
+          </span><br/>
+          ${prediction}
         </li>
       `;
     })
     .join("");
 
-  /* Overall stats */
+  /* Overall */
   const overall = calculateOverallStats(records);
   const overallZone = zone(overall.percent);
 
@@ -132,7 +161,8 @@ export function renderAttendance() {
 
     <hr />
 
-    <h3>Attendance Summary</h3>
+    <h3>Attendance Intelligence</h3>
+
     <p>
       Overall:
       <strong style="color:${overallZone === "safe" ? "green" : "red"}">
@@ -160,7 +190,6 @@ export function attachAttendanceEvents() {
     const state = getAppState();
     const date = today();
 
-    // Immutable: prevent re-marking
     const exists = state.attendance.find(
       (r) => r.subjectId === subjectId && r.date === date
     );

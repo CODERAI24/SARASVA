@@ -8,15 +8,15 @@ export function renderLayout() {
 
       <div id="body">
         
-        <nav id="sidebar">
-          <ul>
-            <li><a href="#dashboard">Dashboard</a></li>
-            <li><a href="#tasks">Tasks</a></li>
-            <li><a href="#attendance">Attendance</a></li>
-            <li><a href="#timetable">Timetable</a></li>
-            <li><a href="#settings">Settings</a></li>
-          </ul>
+        <nav class="sidebar">
+          <a href="#attendance">Attendance</a>
+          <a href="#history">History</a>
+          <a href="#timetable">Timetable</a>
+          <a href="#focus">Focus</a>
+          <a href="#exams">Exams</a>
+          <a href="#settings">Settings</a>
         </nav>
+
 
         <main id="content">
           <p>Loading screen...</p>

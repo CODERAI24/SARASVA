@@ -3,6 +3,10 @@ import { renderTasks, attachTaskEvents } from "./screens/tasks.js";
 import { renderAttendance, attachAttendanceEvents } from "./screens/attendance.js";
 import { renderTimetable, attachTimetableEvents } from "./screens/timetable.js";
 import { renderSettings, attachSettingsEvents } from "./screens/settings.js";
+import { renderHistory } from "./screens/history.js";
+import { renderFocus, attachFocusEvents } from "./screens/focus.js";
+import { renderExams, attachExamEvents } from "./screens/exams.js";
+
 
 export function renderRoute(route) {
   const content = document.getElementById("content");
@@ -33,6 +37,22 @@ export function renderRoute(route) {
       content.innerHTML = renderSettings();
       attachSettingsEvents();
       break;
+
+    case "history":
+      content.innerHTML = renderHistory();
+      break;
+
+    case "focus":
+      content.innerHTML = renderFocus();
+      attachFocusEvents();
+      break;
+    case "exams":
+      content.innerHTML = renderExams();
+      attachExamEvents();
+      break;
+
+
+
 
     default:
       content.innerHTML = renderDashboard();
