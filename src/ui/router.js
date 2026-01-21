@@ -6,6 +6,7 @@ import { renderSettings, attachSettingsEvents } from "./screens/settings.js";
 import { renderHistory } from "./screens/history.js";
 import { renderFocus, attachFocusEvents } from "./screens/focus.js";
 import { renderExams, attachExamEvents } from "./screens/exams.js";
+import { highlightActiveRoute } from "./layout.js";
 
 
 export function renderRoute(route) {
@@ -57,4 +58,7 @@ export function renderRoute(route) {
     default:
       content.innerHTML = renderDashboard();
   }
+  
+  highlightActiveRoute();
+
 }

@@ -27,3 +27,15 @@ export function renderLayout() {
     </div>
   `;
 }
+export function highlightActiveRoute() {
+  const current = location.hash || "#attendance";
+
+  document.querySelectorAll(".sidebar a").forEach(link => {
+    if (link.getAttribute("href") === current) {
+      link.classList.add("active");
+    } else {
+      link.classList.remove("active");
+    }
+  });
+}
+
