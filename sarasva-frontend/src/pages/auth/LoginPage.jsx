@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth.js";
+import { authService } from "@/services/auth.service.js";
 
 export default function LoginPage() {
   const { login, loginWithGoogle, user } = useAuth();
@@ -9,6 +10,7 @@ export default function LoginPage() {
 
   const [form,          setForm]          = useState({ email: "", password: "" });
   const [error,         setError]         = useState("");
+  const [message,       setMessage]       = useState("");
   const [loading,       setLoading]       = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
@@ -25,6 +27,7 @@ export default function LoginPage() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
+    setMessage("");
     setLoading(true);
     try {
       await login(form.email, form.password);
@@ -38,6 +41,7 @@ export default function LoginPage() {
 
   async function handleGoogle() {
     setError("");
+    setMessage("");
     setGoogleLoading(true);
     try {
       await loginWithGoogle();
@@ -48,6 +52,21 @@ export default function LoginPage() {
       }
     } finally {
       setGoogleLoading(false);
+    }
+  }
+
+  async function handleForgotPassword() {
+    if (!form.email) {
+      setError("Please enter your email address to reset your password.");
+      return;
+    }
+    setError("");
+    setMessage("");
+    try {
+      await authService.resetPassword(form.email);
+      setMessage("Password reset email sent. Please check your inbox.");
+    } catch (err) {
+      setError(err.message || "Failed to send reset email.");
     }
   }
 
@@ -68,6 +87,13 @@ export default function LoginPage() {
           {error && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {error}
+            </div>
+          )}
+
+          {/* Success banner */}
+          {message && (
+            <div className="rounded-md bg-green-500/10 px-3 py-2 text-sm text-green-600">
+              {message}
             </div>
           )}
 
@@ -115,7 +141,16 @@ export default function LoginPage() {
 
             {/* Password */}
             <div className="space-y-1.5">
-              <label htmlFor="password" className="text-sm font-medium">Password</label>
+              <div className="flex items-center justify-between">
+                <label htmlFor="password" className="text-sm font-medium">Password</label>
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  className="text-xs text-muted-foreground hover:text-primary hover:underline"
+                >
+                  Forgot password?
+                </button>
+              </div>
               <input
                 id="password"
                 name="password"

@@ -10,6 +10,7 @@ import {
   updateProfile,
   GoogleAuthProvider,
   signInWithPopup,
+  sendPasswordResetEmail,
 } from "firebase/auth";
 import { doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
 import { auth, db } from "@/firebase/config.js";
@@ -88,6 +89,10 @@ export const authService = {
 
   async logout() {
     await signOut(auth);
+  },
+
+  async resetPassword(email) {
+    await sendPasswordResetEmail(auth, email);
   },
 
   async updateProfile({ name, course, semester }) {
