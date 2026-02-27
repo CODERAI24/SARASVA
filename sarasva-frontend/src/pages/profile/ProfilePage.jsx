@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth.js";
 import { authService } from "@/services/auth.service.js";
-import { User, Mail, BookOpen, Hash, Settings2, Check } from "lucide-react";
+import { auth } from "@/firebase/config.js";
+import { User, Mail, BookOpen, Hash, Settings2, Check, KeyRound } from "lucide-react";
 
 const SETTINGS_LIST = [
   {
@@ -101,6 +102,39 @@ export default function ProfilePage() {
     }
   }
 
+  /* ── Set Password (Google-only accounts) ─────────────────────────── */
+  const providers = auth.currentUser?.providerData.map((p) => p.providerId) ?? [];
+  const hasPassword = providers.includes("password");
+
+  const [pwForm,    setPwForm]    = useState({ password: "", confirm: "" });
+  const [pwSaving,  setPwSaving]  = useState(false);
+  const [pwSuccess, setPwSuccess] = useState(false);
+  const [pwError,   setPwError]   = useState("");
+
+  async function handleSetPassword(e) {
+    e.preventDefault();
+    if (pwForm.password !== pwForm.confirm) {
+      setPwError("Passwords do not match.");
+      return;
+    }
+    if (pwForm.password.length < 6) {
+      setPwError("Password must be at least 6 characters.");
+      return;
+    }
+    setPwSaving(true);
+    setPwError("");
+    setPwSuccess(false);
+    try {
+      await authService.addPassword(pwForm.password);
+      setPwSuccess(true);
+      setPwForm({ password: "", confirm: "" });
+    } catch (err) {
+      setPwError(err.message || "Failed to set password.");
+    } finally {
+      setPwSaving(false);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-xl space-y-8">
 
@@ -122,6 +156,56 @@ export default function ProfilePage() {
           <span>{user?.email ?? "—"}</span>
         </div>
       </div>
+
+      {/* ── Set Password (shown only for Google-only accounts) ───────── */}
+      {!hasPassword && (
+        <div className="rounded-xl border border-amber-400/40 bg-amber-50/5 p-5 space-y-4">
+          <h3 className="text-sm font-semibold text-amber-500 uppercase tracking-wide flex items-center gap-2">
+            <KeyRound size={14} />
+            Set a Password
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            Your account uses Google sign-in only. Set a password to also log in with your email.
+          </p>
+
+          {pwError && (
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {pwError}
+            </div>
+          )}
+          {pwSuccess && (
+            <div className="rounded-md bg-green-500/10 px-3 py-2 text-sm text-green-600 flex items-center gap-1.5">
+              <Check size={14} /> Password set — you can now log in with email &amp; password.
+            </div>
+          )}
+
+          <form onSubmit={handleSetPassword} className="space-y-3">
+            <input
+              type="password"
+              placeholder="New password"
+              value={pwForm.password}
+              onChange={(e) => setPwForm((p) => ({ ...p, password: e.target.value }))}
+              required
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:ring-offset-2 ring-offset-background"
+            />
+            <input
+              type="password"
+              placeholder="Confirm password"
+              value={pwForm.confirm}
+              onChange={(e) => setPwForm((p) => ({ ...p, confirm: e.target.value }))}
+              required
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:ring-offset-2 ring-offset-background"
+            />
+            <button
+              type="submit"
+              disabled={pwSaving}
+              className="rounded-md bg-amber-500 px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {pwSaving ? "Setting password..." : "Set password"}
+            </button>
+          </form>
+        </div>
+      )}
 
       {/* ── Profile form ─────────────────────────────────────────────── */}
       <div className="rounded-xl border border-border bg-card p-5 space-y-4">

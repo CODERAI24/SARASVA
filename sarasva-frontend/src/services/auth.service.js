@@ -10,6 +10,9 @@ import {
   updateProfile,
   GoogleAuthProvider,
   signInWithPopup,
+  linkWithPopup,
+  linkWithCredential,
+  EmailAuthProvider,
   sendPasswordResetEmail,
 } from "firebase/auth";
 import { doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
@@ -73,10 +76,39 @@ export const authService = {
   },
 
   async login({ email, password }) {
-    const cred    = await signInWithEmailAndPassword(auth, email, password);
-    const snap    = await getDoc(profileRef(cred.user.uid));
-    const profile = snap.exists() ? snap.data() : {};
-    return buildUser(cred.user, profile);
+    try {
+      const cred    = await signInWithEmailAndPassword(auth, email, password);
+      const snap    = await getDoc(profileRef(cred.user.uid));
+      const profile = snap.exists() ? snap.data() : {};
+      return buildUser(cred.user, profile);
+    } catch (err) {
+      if (err.code === "auth/invalid-credential" || err.code === "auth/wrong-password") {
+        throw Object.assign(new Error(
+          'Incorrect password. If you previously signed in with Google, use "Forgot password?" to set a password for email login.'
+        ), { code: err.code });
+      }
+      throw err;
+    }
+  },
+
+  /** Link Google provider to an existing email/password account (call while logged in) */
+  async linkGoogle() {
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) throw new Error("Not logged in.");
+    const provider = new GoogleAuthProvider();
+    await linkWithPopup(firebaseUser, provider);
+  },
+
+  /**
+   * Add email/password sign-in to a Google-only account (call while logged in via Google).
+   * After this, the user can sign in with either Google or email+password.
+   */
+  async addPassword(password) {
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) throw new Error("Not logged in.");
+    if (!firebaseUser.email) throw new Error("No email on account.");
+    const credential = EmailAuthProvider.credential(firebaseUser.email, password);
+    await linkWithCredential(firebaseUser, credential);
   },
 
   async getMe() {
