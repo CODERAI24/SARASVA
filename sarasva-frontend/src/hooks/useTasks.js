@@ -52,5 +52,27 @@ export function useTasks({ archived = false } = {}) {
     catch (err) { setError(err.message); }
   }, [user]);
 
-  return { tasks, loading, error, create, update, toggle, archive };
+  /* ── Subtask mutations ── */
+  const addSubtask = useCallback(async (taskId, title) => {
+    if (!user) return;
+    const task = tasks.find((t) => t.id === taskId);
+    try { await tasksService.addSubtask(user.id, taskId, task?.subtasks ?? [], title); }
+    catch (err) { setError(err.message); }
+  }, [user, tasks]);
+
+  const toggleSubtask = useCallback(async (taskId, subtaskId) => {
+    if (!user) return;
+    const task = tasks.find((t) => t.id === taskId);
+    try { await tasksService.toggleSubtask(user.id, taskId, task?.subtasks ?? [], subtaskId); }
+    catch (err) { setError(err.message); }
+  }, [user, tasks]);
+
+  const deleteSubtask = useCallback(async (taskId, subtaskId) => {
+    if (!user) return;
+    const task = tasks.find((t) => t.id === taskId);
+    try { await tasksService.deleteSubtask(user.id, taskId, task?.subtasks ?? [], subtaskId); }
+    catch (err) { setError(err.message); }
+  }, [user, tasks]);
+
+  return { tasks, loading, error, create, update, toggle, archive, addSubtask, toggleSubtask, deleteSubtask };
 }

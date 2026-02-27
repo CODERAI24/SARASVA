@@ -34,12 +34,13 @@ function profileRef(uid) {
 /** Build a normalized user object (same shape as the old localStorage user) */
 function buildUser(firebaseUser, profile = {}) {
   return {
-    id:       firebaseUser.uid,
-    name:     profile.name     ?? firebaseUser.displayName ?? "",
-    email:    firebaseUser.email,
-    course:   profile.course   ?? "",
-    semester: profile.semester ?? "",
-    settings: profile.settings ?? DEFAULT_SETTINGS,
+    id:                 firebaseUser.uid,
+    name:               profile.name     ?? firebaseUser.displayName ?? "",
+    email:              firebaseUser.email,
+    course:             profile.course   ?? "",
+    semester:           profile.semester ?? "",
+    settings:           profile.settings ?? DEFAULT_SETTINGS,
+    notificationsEmail: profile.notificationsEmail ?? false,
   };
 }
 
@@ -151,5 +152,11 @@ export const authService = {
     const updated = { ...current, ...patch };
     await updateDoc(profileRef(firebaseUser.uid), { settings: updated });
     return updated;
+  },
+
+  async updateNotificationPrefs({ notificationsEmail }) {
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) throw new Error("Not logged in.");
+    await updateDoc(profileRef(firebaseUser.uid), { notificationsEmail });
   },
 };

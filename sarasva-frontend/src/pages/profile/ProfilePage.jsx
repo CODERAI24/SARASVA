@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth.js";
 import { authService } from "@/services/auth.service.js";
+import { notificationsService } from "@/services/notifications.service.js";
 import { auth } from "@/firebase/config.js";
-import { User, Mail, BookOpen, Hash, Settings2, Check, KeyRound } from "lucide-react";
+import { User, Mail, BookOpen, Hash, Settings2, Check, KeyRound, BellRing, BellOff } from "lucide-react";
 
 const SETTINGS_LIST = [
   {
@@ -99,6 +100,36 @@ export default function ProfilePage() {
       setSettingsError(err.message || "Failed to save settings.");
     } finally {
       setSettingsSaving(false);
+    }
+  }
+
+  /* ── Notification preferences ───────────────────────────────────── */
+  const [pushPermission, setPushPermission] = useState(
+    () => (typeof Notification !== "undefined" ? Notification.permission : "denied")
+  );
+  const [emailNotif, setEmailNotif] = useState(user?.notificationsEmail ?? false);
+  const [notifSaving, setNotifSaving] = useState(false);
+  const [notifSuccess, setNotifSuccess] = useState(false);
+
+  async function handleEnablePush() {
+    const result = await notificationsService.requestPermission();
+    setPushPermission(result);
+  }
+
+  async function handleEmailNotifToggle() {
+    const newVal = !emailNotif;
+    setEmailNotif(newVal);
+    setNotifSaving(true);
+    setNotifSuccess(false);
+    try {
+      await authService.updateNotificationPrefs({ notificationsEmail: newVal });
+      await refreshUser();
+      setNotifSuccess(true);
+      setTimeout(() => setNotifSuccess(false), 2000);
+    } catch {
+      setEmailNotif(!newVal);
+    } finally {
+      setNotifSaving(false);
     }
   }
 
@@ -328,6 +359,81 @@ export default function ProfilePage() {
               </button>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* ── Notifications ─────────────────────────────────────────────── */}
+      <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+            <BellRing size={14} />
+            Notifications
+          </h3>
+          {notifSuccess && (
+            <span className="flex items-center gap-1 text-xs text-green-600">
+              <Check size={12} /> Saved
+            </span>
+          )}
+        </div>
+
+        <div className="divide-y divide-border">
+
+          {/* Browser push */}
+          <div className="flex items-center justify-between py-3">
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium">Browser Notifications</p>
+              <p className="text-xs text-muted-foreground">
+                {pushPermission === "granted"
+                  ? "Enabled — you'll see alerts for attendance risk and overdue tasks."
+                  : pushPermission === "denied"
+                    ? "Blocked by browser. Allow notifications in your browser/system settings."
+                    : "Get on-device alerts when attendance drops or tasks are overdue."}
+              </p>
+            </div>
+            {pushPermission === "granted" ? (
+              <span className="flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                <BellRing size={11} /> On
+              </span>
+            ) : pushPermission === "denied" ? (
+              <span className="flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+                <BellOff size={11} /> Blocked
+              </span>
+            ) : (
+              <button
+                onClick={handleEnablePush}
+                className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
+              >
+                Enable
+              </button>
+            )}
+          </div>
+
+          {/* Email notifications */}
+          <div className="flex items-center justify-between py-3">
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium">Email Alerts</p>
+              <p className="text-xs text-muted-foreground">
+                Send alerts to <span className="font-medium">{user?.email}</span> for attendance risk and overdue tasks.
+                {" "}Requires EmailJS to be configured by the admin.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={emailNotif}
+              onClick={handleEmailNotifToggle}
+              disabled={notifSaving}
+              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${
+                emailNotif ? "bg-primary" : "bg-input"
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-lg transform transition duration-200 ease-in-out ${
+                  emailNotif ? "translate-x-4" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
         </div>
       </div>
 

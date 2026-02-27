@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -10,10 +10,12 @@ import { useAuth }             from "@/hooks/useAuth.js";
 import { useAttendanceSummary, useAttendanceToday } from "@/hooks/useAttendance.js";
 import { useTasks }            from "@/hooks/useTasks.js";
 import { useExams }            from "@/hooks/useExams.js";
+import { notificationsService } from "@/services/notifications.service.js";
 import { cn }                  from "@/lib/utils.js";
 import {
   ShieldCheck, ShieldAlert, CalendarCheck,
   Target, ListChecks, BookOpen, ArrowRight,
+  CheckCircle2, Circle, Plus, Clock, Flame,
 } from "lucide-react";
 
 /* ── helpers ─────────────────────────────────────────────────────── */
@@ -22,7 +24,7 @@ function ZoneBadge({ zone }) {
   return (
     <span className={cn(
       "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold",
-      safe ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+      safe ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-700"
     )}>
       {safe ? <ShieldCheck size={11} /> : <ShieldAlert size={11} />}
       {safe ? "SAFE" : "RISK"}
@@ -31,16 +33,16 @@ function ZoneBadge({ zone }) {
 }
 
 /* ── Stat card ────────────────────────────────────────────────────── */
-function StatCard({ icon: Icon, label, value, sub, iconColor = "text-primary", to }) {
+function StatCard({ icon: Icon, label, value, sub, iconBg = "bg-primary/10", iconColor = "text-primary", to }) {
   const inner = (
-    <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 hover:bg-accent/30 transition-colors">
-      <div className={cn("mt-0.5 rounded-lg bg-primary/10 p-2", iconColor)}>
-        <Icon size={18} />
+    <div className="flex items-start gap-3 rounded-2xl border border-border bg-card p-4 card-shadow hover:shadow-md transition-shadow">
+      <div className={cn("mt-0.5 rounded-xl p-2.5", iconBg, iconColor)}>
+        <Icon size={17} />
       </div>
       <div>
-        <p className="text-2xl font-bold leading-none">{value}</p>
+        <p className="text-2xl font-bold leading-none tracking-tight">{value}</p>
         <p className="mt-0.5 text-xs font-medium text-muted-foreground">{label}</p>
-        {sub && <p className="mt-1 text-xs text-muted-foreground">{sub}</p>}
+        {sub && <div className="mt-1">{typeof sub === "string" ? <p className="text-xs text-muted-foreground">{sub}</p> : sub}</div>}
       </div>
     </div>
   );
@@ -52,12 +54,12 @@ function AttTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   return (
-    <div className="rounded-lg border border-border bg-card px-3 py-2 shadow-md text-xs">
+    <div className="rounded-xl border border-border bg-card px-3 py-2 shadow-lg text-xs">
       <p className="font-semibold mb-1">{d.name}</p>
       <p>{d.percent}% attendance</p>
       <p className="text-muted-foreground">{d.present} present / {d.total} total</p>
       {d.zone === "risk" && d.classesNeededFor75 > 0 && (
-        <p className="mt-1 font-medium text-red-600">Need {d.classesNeededFor75} more to reach 75%</p>
+        <p className="mt-1 font-medium text-rose-600">Need {d.classesNeededFor75} more to reach 75%</p>
       )}
     </div>
   );
@@ -65,13 +67,13 @@ function AttTooltip({ active, payload }) {
 
 /* ── Radial gauge for overall attendance ──────────────────────────── */
 function OverallGauge({ percent, zone }) {
-  const data = [{ value: percent, fill: zone === "safe" ? "#22c55e" : "#ef4444" }];
+  const data = [{ value: percent, fill: zone === "safe" ? "#10b981" : "#f43f5e" }];
   return (
     <div className="relative flex flex-col items-center justify-center">
       <RadialBarChart
-        width={160} height={160}
-        cx={80} cy={80}
-        innerRadius={54} outerRadius={72}
+        width={156} height={156}
+        cx={78} cy={78}
+        innerRadius={52} outerRadius={70}
         startAngle={225} endAngle={-45}
         data={data}
         barSize={14}
@@ -84,7 +86,6 @@ function OverallGauge({ percent, zone }) {
           angleAxisId={0}
         />
       </RadialBarChart>
-      {/* Centre text */}
       <div className="absolute flex flex-col items-center">
         <span className="text-2xl font-bold leading-none">{percent}%</span>
         <ZoneBadge zone={zone} />
@@ -102,8 +103,8 @@ function TargetPanel({ subjects }) {
   if (risk.length === 0) {
     return (
       <div className="flex flex-col items-center gap-1 py-6 text-center text-sm text-muted-foreground">
-        <ShieldCheck size={28} className="text-green-500 opacity-70" />
-        <p>All subjects are above 75%!</p>
+        <ShieldCheck size={28} className="text-emerald-500 opacity-80" />
+        <p>All subjects above 75%!</p>
       </div>
     );
   }
@@ -111,19 +112,15 @@ function TargetPanel({ subjects }) {
   return (
     <div className="space-y-2">
       {risk.map((s) => (
-        <div key={s.subject.id} className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5">
+        <div key={s.subject.id} className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-red-900">{s.subject.name}</span>
-            <span className="text-xs font-bold text-red-700">{s.percent}%</span>
+            <span className="text-sm font-semibold text-rose-900">{s.subject.name}</span>
+            <span className="text-xs font-bold text-rose-700">{s.percent}%</span>
           </div>
-          {/* Mini progress bar */}
-          <div className="my-1.5 h-1.5 w-full overflow-hidden rounded-full bg-red-200">
-            <div
-              className="h-full rounded-full bg-red-500"
-              style={{ width: `${s.percent}%` }}
-            />
+          <div className="my-1.5 h-1.5 w-full overflow-hidden rounded-full bg-rose-200">
+            <div className="h-full rounded-full bg-rose-500" style={{ width: `${s.percent}%` }} />
           </div>
-          <p className="text-xs text-red-700">
+          <p className="text-xs text-rose-700">
             Attend <strong>{s.classesNeededFor75}</strong> consecutive class{s.classesNeededFor75 !== 1 ? "es" : ""} to reach 75%
           </p>
         </div>
@@ -135,29 +132,28 @@ function TargetPanel({ subjects }) {
 /* ── Today panel ──────────────────────────────────────────────────── */
 function TodayPanel({ today = [], date, day }) {
   const unmarked = today.filter((t) => !t.alreadyMarked);
-  const marked   = today.filter((t) =>  t.alreadyMarked);
 
   if (today.length === 0) {
-    return <p className="py-3 text-center text-sm text-muted-foreground">No classes scheduled for today ({day}).</p>;
+    return <p className="py-3 text-center text-sm text-muted-foreground">No classes today ({day}).</p>;
   }
 
   return (
     <div className="space-y-1.5">
       {unmarked.length > 0 && (
-        <p className="text-xs font-semibold text-amber-700 bg-amber-50 rounded-md px-2 py-1">
+        <p className="text-xs font-semibold text-amber-700 bg-amber-50 rounded-lg px-2 py-1">
           {unmarked.length} class{unmarked.length !== 1 ? "es" : ""} not yet marked
         </p>
       )}
       {today.map(({ subject, markedStatus, alreadyMarked }) => (
-        <div key={subject.id} className="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-accent/50">
+        <div key={subject.id} className="flex items-center justify-between rounded-xl px-2.5 py-1.5 hover:bg-muted/60 transition-colors">
           <span className="text-sm">{subject.name}</span>
           {alreadyMarked ? (
             <span className={cn(
-              "rounded-full px-2 py-0.5 text-xs font-semibold",
-              markedStatus === "present"   && "bg-green-100 text-green-800",
-              markedStatus === "absent"    && "bg-red-100 text-red-800",
-              markedStatus === "cancelled" && "bg-yellow-100 text-yellow-800",
-              markedStatus === "extra"     && "bg-blue-100 text-blue-800",
+              "rounded-full px-2 py-0.5 text-xs font-semibold capitalize",
+              markedStatus === "present"   && "bg-emerald-100 text-emerald-800",
+              markedStatus === "absent"    && "bg-rose-100 text-rose-700",
+              markedStatus === "cancelled" && "bg-amber-100 text-amber-700",
+              markedStatus === "extra"     && "bg-blue-100 text-blue-700",
             )}>
               {markedStatus}
             </span>
@@ -172,36 +168,105 @@ function TodayPanel({ today = [], date, day }) {
   );
 }
 
-/* ── Tasks panel ──────────────────────────────────────────────────── */
-function TasksPanel({ tasks }) {
-  const overdue  = tasks.filter((t) => !t.completed && t.dueDate && new Date(t.dueDate) < new Date());
-  const high     = tasks.filter((t) => !t.completed && t.priority === "high" && !overdue.find((o) => o.id === t.id));
-  const upcoming = [...overdue, ...high].slice(0, 5);
+/* ── Dashboard Tasks Banner — hero section at top ─────────────────── */
+function DashboardTasksBanner({ tasks, toggle }) {
+  const now = new Date();
+  const overdue  = tasks.filter((t) => !t.completed && t.dueDate && new Date(t.dueDate) < now);
+  const highPri  = tasks.filter((t) => !t.completed && t.priority === "high" && !overdue.find((o) => o.id === t.id));
+  const upcoming = [...overdue, ...highPri].slice(0, 4);
+  const pending  = tasks.filter((t) => !t.completed);
 
-  if (tasks.filter((t) => !t.completed).length === 0) {
-    return <p className="py-3 text-center text-sm text-muted-foreground">No pending tasks.</p>;
-  }
+  const allClear = pending.length === 0;
 
   return (
-    <div className="space-y-1.5">
-      {upcoming.length > 0 ? upcoming.map((task) => {
-        const isOverdue = task.dueDate && new Date(task.dueDate) < new Date();
-        return (
-          <div key={task.id} className="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-accent/50">
-            <span className="text-sm truncate max-w-[70%]">{task.title}</span>
-            <span className={cn(
-              "rounded-full px-2 py-0.5 text-xs font-semibold",
-              isOverdue           ? "bg-red-100 text-red-800"
-              : task.priority === "high" ? "bg-red-100 text-red-800"
-              : "bg-amber-100 text-amber-800"
-            )}>
-              {isOverdue ? "overdue" : task.priority}
-            </span>
+    <div className={cn(
+      "rounded-2xl border p-5 card-shadow",
+      allClear
+        ? "border-emerald-200 bg-emerald-50"
+        : overdue.length > 0
+          ? "border-rose-200 bg-gradient-to-br from-rose-50 to-orange-50"
+          : "border-amber-200 bg-gradient-to-br from-amber-50 to-yellow-50"
+    )}>
+      {/* Header row */}
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className={cn(
+            "rounded-xl p-2",
+            allClear ? "bg-emerald-100" : overdue.length > 0 ? "bg-rose-100" : "bg-amber-100"
+          )}>
+            {allClear
+              ? <CheckCircle2 size={18} className="text-emerald-600" />
+              : overdue.length > 0
+                ? <Flame size={18} className="text-rose-600" />
+                : <Clock size={18} className="text-amber-600" />}
           </div>
-        );
-      }) : (
-        <p className="text-sm text-muted-foreground px-2">
-          {tasks.filter((t) => !t.completed).length} pending task{tasks.filter((t) => !t.completed).length !== 1 ? "s" : ""}
+          <div>
+            <h3 className="text-sm font-bold text-foreground">
+              {allClear ? "All tasks complete!" : "Tasks"}
+            </h3>
+            {!allClear && (
+              <p className="text-xs text-muted-foreground">
+                {overdue.length > 0 && `${overdue.length} overdue · `}{pending.length} pending
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/tasks"
+            className="flex items-center gap-1 rounded-lg bg-white/70 border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-white transition-colors"
+          >
+            <Plus size={11} /> Add
+          </Link>
+          <Link
+            to="/tasks"
+            className="flex items-center gap-0.5 text-xs text-primary font-medium hover:underline"
+          >
+            All <ArrowRight size={11} />
+          </Link>
+        </div>
+      </div>
+
+      {/* Task list */}
+      {allClear ? (
+        <p className="text-sm text-emerald-700 font-medium text-center py-1">
+          You're all caught up! Great work.
+        </p>
+      ) : upcoming.length > 0 ? (
+        <div className="space-y-1.5">
+          {upcoming.map((task) => {
+            const isOverdue = task.dueDate && new Date(task.dueDate) < now;
+            return (
+              <div
+                key={task.id}
+                className="flex items-center gap-3 rounded-xl bg-white/60 px-3 py-2.5 hover:bg-white/90 transition-colors"
+              >
+                <button
+                  onClick={() => toggle(task.id, task.completed)}
+                  className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
+                >
+                  <Circle size={17} />
+                </button>
+                <span className="flex-1 text-sm font-medium truncate">{task.title}</span>
+                <span className={cn(
+                  "shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold",
+                  isOverdue ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-700"
+                )}>
+                  {isOverdue ? "overdue" : "high"}
+                </span>
+              </div>
+            );
+          })}
+          {pending.length > upcoming.length && (
+            <Link to="/tasks" className="block text-center text-xs text-muted-foreground hover:text-primary pt-1">
+              +{pending.length - upcoming.length} more tasks
+            </Link>
+          )}
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground px-1">
+          {pending.length} pending task{pending.length !== 1 ? "s" : ""} — no urgent ones right now.{" "}
+          <Link to="/tasks" className="text-primary underline">View all</Link>
         </p>
       )}
     </div>
@@ -213,13 +278,19 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const { overall, subjects = [] } = useAttendanceSummary();
   const { today = [], date, day } = useAttendanceToday();
-  const { tasks = [] }            = useTasks({ archived: false });
+  const { tasks = [], toggle }    = useTasks({ archived: false });
   const { exams = [] }            = useExams();
 
   const pendingTasks  = tasks.filter((t) => !t.completed).length;
   const riskCount     = subjects.filter((s) => s.zone === "risk").length;
   const activeExams   = exams.filter((e) => !e.archived).length;
   const unmarkedToday = today.filter((t) => !t.alreadyMarked).length;
+
+  /* Fire daily notifications once data loads */
+  useEffect(() => {
+    if (!user || subjects.length === 0) return;
+    notificationsService.checkAndAlert(user, subjects, tasks);
+  }, [user, subjects, tasks]);
 
   /* Bar chart data */
   const barData = useMemo(() =>
@@ -237,16 +308,22 @@ export default function DashboardPage() {
   const safePercent = overall?.percent ?? 0;
   const safeZone    = overall?.zone    ?? "risk";
 
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
 
       {/* Greeting */}
       <div>
-        <h2 className="text-2xl font-bold">Dashboard</h2>
+        <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
         <p className="text-sm text-muted-foreground">
-          Good {new Date().getHours() < 12 ? "morning" : new Date().getHours() < 17 ? "afternoon" : "evening"}, {user?.name?.split(" ")[0]}
+          {greeting}, <span className="font-medium text-foreground">{user?.name?.split(" ")[0]}</span>
         </p>
       </div>
+
+      {/* ── TASKS BANNER (top priority) ────────────────────────────── */}
+      <DashboardTasksBanner tasks={tasks} toggle={toggle} />
 
       {/* Quick stat cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -255,6 +332,8 @@ export default function DashboardPage() {
           label="Overall Attendance"
           value={`${safePercent}%`}
           sub={<ZoneBadge zone={safeZone} />}
+          iconBg="bg-blue-50"
+          iconColor="text-blue-600"
           to="/attendance"
         />
         <StatCard
@@ -262,14 +341,19 @@ export default function DashboardPage() {
           label="Subjects at Risk"
           value={riskCount}
           sub={riskCount > 0 ? "Need attention" : "All safe"}
-          iconColor={riskCount > 0 ? "text-red-600" : "text-green-600"}
+          iconBg={riskCount > 0 ? "bg-rose-50" : "bg-emerald-50"}
+          iconColor={riskCount > 0 ? "text-rose-600" : "text-emerald-600"}
           to="/attendance"
         />
         <StatCard
           icon={ListChecks}
           label="Pending Tasks"
           value={pendingTasks}
-          sub={pendingTasks > 0 ? `${tasks.filter((t) => !t.completed && t.dueDate && new Date(t.dueDate) < new Date()).length} overdue` : "All clear"}
+          sub={pendingTasks > 0
+            ? `${tasks.filter((t) => !t.completed && t.dueDate && new Date(t.dueDate) < new Date()).length} overdue`
+            : "All clear"}
+          iconBg="bg-violet-50"
+          iconColor="text-violet-600"
           to="/tasks"
         />
         <StatCard
@@ -277,6 +361,8 @@ export default function DashboardPage() {
           label="Active Exams"
           value={activeExams}
           sub={`${unmarkedToday} class${unmarkedToday !== 1 ? "es" : ""} unmarked today`}
+          iconBg="bg-amber-50"
+          iconColor="text-amber-600"
           to="/exams"
         />
       </div>
@@ -288,32 +374,30 @@ export default function DashboardPage() {
         <div className="space-y-4 lg:col-span-2">
 
           {/* Overall gauge */}
-          <div className="rounded-xl border border-border bg-card p-4">
+          <div className="rounded-2xl border border-border bg-card p-4 card-shadow">
             <h3 className="mb-3 text-sm font-semibold">Overall Attendance</h3>
             <div className="flex items-center gap-4">
               <OverallGauge percent={safePercent} zone={safeZone} />
-              <div className="space-y-1 text-sm">
-                <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Present</span>
-                  <span className="font-medium">{overall?.present ?? 0}</span>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Total</span>
-                  <span className="font-medium">{overall?.total ?? 0}</span>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Absent</span>
-                  <span className="font-medium">{(overall?.total ?? 0) - (overall?.present ?? 0)}</span>
-                </div>
+              <div className="space-y-1.5 text-sm">
+                {[
+                  ["Present", overall?.present ?? 0],
+                  ["Total",   overall?.total   ?? 0],
+                  ["Absent",  (overall?.total ?? 0) - (overall?.present ?? 0)],
+                ].map(([label, val]) => (
+                  <div key={label} className="flex justify-between gap-6">
+                    <span className="text-muted-foreground">{label}</span>
+                    <span className="font-semibold">{val}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
 
           {/* Target panel */}
-          <div className="rounded-xl border border-border bg-card p-4">
+          <div className="rounded-2xl border border-border bg-card p-4 card-shadow">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Target — Below 75%</h3>
-              <Link to="/attendance" className="flex items-center gap-0.5 text-xs text-primary hover:underline">
+              <h3 className="text-sm font-semibold">Below 75% Alert</h3>
+              <Link to="/attendance" className="flex items-center gap-0.5 text-xs text-primary font-medium hover:underline">
                 Details <ArrowRight size={11} />
               </Link>
             </div>
@@ -322,7 +406,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Right: Bar chart */}
-        <div className="rounded-xl border border-border bg-card p-4 lg:col-span-3">
+        <div className="rounded-2xl border border-border bg-card p-4 card-shadow lg:col-span-3">
           <h3 className="mb-4 text-sm font-semibold">Subject-wise Attendance</h3>
 
           {barData.length === 0 ? (
@@ -345,7 +429,6 @@ export default function DashboardPage() {
                   axisLine={false}
                   tickLine={false}
                 />
-                {/* 75% threshold reference line */}
                 <ReferenceLine
                   y={75}
                   stroke="#f59e0b"
@@ -354,12 +437,12 @@ export default function DashboardPage() {
                   label={{ value: "75%", position: "insideTopRight", fontSize: 10, fill: "#f59e0b" }}
                 />
                 <Tooltip content={<AttTooltip />} cursor={{ fill: "hsl(var(--accent))" }} />
-                <Bar dataKey="percent" radius={[4, 4, 0, 0]}>
+                <Bar dataKey="percent" radius={[6, 6, 0, 0]}>
                   {barData.map((entry, index) => (
                     <Cell
                       key={index}
-                      fill={entry.zone === "safe" ? "#22c55e" : "#ef4444"}
-                      fillOpacity={0.85}
+                      fill={entry.zone === "safe" ? "#10b981" : "#f43f5e"}
+                      fillOpacity={0.82}
                     />
                   ))}
                 </Bar>
@@ -367,51 +450,32 @@ export default function DashboardPage() {
             </ResponsiveContainer>
           )}
 
-          {/* Legend */}
           <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
-              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-green-500" /> ≥ 75% (Safe)
+              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-emerald-500" /> ≥ 75% Safe
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-red-500" /> &lt; 75% (Risk)
+              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-rose-500" /> &lt; 75% Risk
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="inline-block h-0.5 w-5 bg-amber-400 border-t border-dashed border-amber-400" /> 75% threshold
+              <span className="inline-block h-0.5 w-5 bg-amber-400" style={{ borderTop: "1px dashed #f59e0b" }} /> 75% line
             </span>
           </div>
         </div>
       </div>
 
-      {/* Bottom row: Today's classes | Pending tasks */}
-      <div className="grid gap-4 lg:grid-cols-2">
-
-        {/* Today */}
-        <div className="rounded-xl border border-border bg-card p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold">Today's Classes</h3>
-              <p className="text-xs text-muted-foreground">{day}, {date}</p>
-            </div>
-            <Link to="/attendance" className="flex items-center gap-0.5 text-xs text-primary hover:underline">
-              Mark <ArrowRight size={11} />
-            </Link>
+      {/* Bottom row: Today's classes */}
+      <div className="rounded-2xl border border-border bg-card p-4 card-shadow">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold">Today's Classes</h3>
+            <p className="text-xs text-muted-foreground">{day}, {date}</p>
           </div>
-          <TodayPanel today={today} date={date} day={day} />
+          <Link to="/attendance" className="flex items-center gap-0.5 text-xs text-primary font-medium hover:underline">
+            Mark <ArrowRight size={11} />
+          </Link>
         </div>
-
-        {/* Tasks */}
-        <div className="rounded-xl border border-border bg-card p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold">Urgent Tasks</h3>
-              <p className="text-xs text-muted-foreground">Overdue + high priority</p>
-            </div>
-            <Link to="/tasks" className="flex items-center gap-0.5 text-xs text-primary hover:underline">
-              All tasks <ArrowRight size={11} />
-            </Link>
-          </div>
-          <TasksPanel tasks={tasks} />
-        </div>
+        <TodayPanel today={today} date={date} day={day} />
       </div>
     </div>
   );

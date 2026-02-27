@@ -31,7 +31,7 @@ export default function Navbar() {
   }
 
   return (
-    <aside className="hidden md:flex w-56 flex-shrink-0 flex-col border-r border-border bg-card px-3 py-6">
+    <aside className="hidden lg:flex w-56 flex-shrink-0 flex-col border-r border-border bg-card px-3 py-6">
       {/* Brand */}
       <div className="mb-8 px-3">
         <h1 className="text-xl font-bold tracking-tight">Sarasva</h1>
