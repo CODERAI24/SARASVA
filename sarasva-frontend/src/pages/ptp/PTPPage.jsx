@@ -1,22 +1,20 @@
 import { useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  Search, UserPlus, UserCheck, Users, X, Check, Clock, User2,
+  Search, UserPlus, UserCheck, Users, X, Check, Clock,
+  User2, UsersRound, Plus, ChevronRight,
 } from "lucide-react";
 import { usePTP } from "@/hooks/usePTP.js";
+import { useGroups } from "@/hooks/useGroups.js";
+import { cn } from "@/lib/utils.js";
 
-/* ── Avatar initials component ──────────────────────────────────── */
+/* ── Avatar initials ─────────────────────────────────────────────── */
 function Avatar({ name, size = "md" }) {
   const initials = (name ?? "?")
-    .split(" ")
-    .map(w => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+    .split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
   const sz = size === "sm" ? "h-9 w-9 text-xs" : "h-11 w-11 text-sm";
   return (
-    <div
-      className={`${sz} shrink-0 rounded-full bg-primary/15 flex items-center justify-center font-bold text-primary`}
-    >
+    <div className={`${sz} shrink-0 rounded-full bg-primary/15 flex items-center justify-center font-bold text-primary`}>
       {initials}
     </div>
   );
@@ -24,20 +22,35 @@ function Avatar({ name, size = "md" }) {
 
 /* ── Main page ───────────────────────────────────────────────────── */
 export default function PTPPage() {
+  const navigate = useNavigate();
+
   const {
     friends, incomingRequests, outgoingRequests, loading,
     searchUsers, sendRequest, acceptRequest, rejectRequest, removeFriend,
   } = usePTP();
 
+  const {
+    myGroups, groupInvites,
+    createGroup, acceptInvite, rejectInvite,
+  } = useGroups();
+
+  /* ── Search state ────────────────────────────────────────────── */
   const [searchQuery,    setSearchQuery]    = useState("");
   const [searchResults,  setSearchResults]  = useState([]);
   const [searching,      setSearching]      = useState(false);
   const [searchError,    setSearchError]    = useState(null);
-  const [requestSentMap, setRequestSentMap] = useState({}); // uid → true (optimistic)
-  const [tab,            setTab]            = useState("friends"); // "friends" | "requests"
+  const [requestSentMap, setRequestSentMap] = useState({});
   const debounceRef = useRef(null);
 
-  /* ── Search ──────────────────────────────────────────────────── */
+  /* ── Tabs: friends | requests | groups ───────────────────────── */
+  const [tab, setTab] = useState("friends");
+
+  /* ── Groups create state ─────────────────────────────────────── */
+  const [creatingGroup, setCreatingGroup] = useState(false);
+  const [groupName,     setGroupName]     = useState("");
+  const [groupError,    setGroupError]    = useState("");
+
+  /* ── Search handler ──────────────────────────────────────────── */
   async function handleSearchChange(val) {
     setSearchQuery(val);
     setSearchError(null);
@@ -56,14 +69,24 @@ export default function PTPPage() {
     try {
       await sendRequest(person);
       setRequestSentMap(m => ({ ...m, [person.uid]: true }));
-    } catch {
-      // error already captured in hook
-    }
+    } catch { /* error in hook */ }
   }
 
-  const showSearch = searchQuery.length > 0;
+  async function handleCreateGroup(e) {
+    e.preventDefault();
+    if (!groupName.trim()) return;
+    setGroupError("");
+    try {
+      const id = await createGroup(groupName);
+      setGroupName(""); setCreatingGroup(false);
+      if (id) navigate(`/ptp/group/${id}`);
+    } catch (err) { setGroupError(err.message); }
+  }
 
-  /* ── Helpers ─────────────────────────────────────────────────── */
+  /* ── Derived helpers ─────────────────────────────────────────── */
+  const showSearch = searchQuery.length > 0;
+  const totalRequests = incomingRequests.length + groupInvites.length;
+
   function isAlreadySent(uid) {
     return requestSentMap[uid] || outgoingRequests.some(r => r.toUid === uid);
   }
@@ -78,16 +101,13 @@ export default function PTPPage() {
       <div>
         <h1 className="text-xl font-bold">Study Peers</h1>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Connect and collaborate with classmates
+          Connect, form study groups, and share resources
         </p>
       </div>
 
       {/* ── Search bar ───────────────────────────────────────────── */}
       <div className="relative">
-        <Search
-          size={15}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-        />
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
         <input
           value={searchQuery}
           onChange={e => handleSearchChange(e.target.value)}
@@ -134,21 +154,18 @@ export default function PTPPage() {
                   </div>
                   {isAlreadyFriend(person.uid) ? (
                     <div className="flex items-center gap-1 text-xs font-medium text-emerald-600">
-                      <UserCheck size={14} />
-                      Friends
+                      <UserCheck size={14} /> Friends
                     </div>
                   ) : isAlreadySent(person.uid) ? (
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Clock size={13} />
-                      Sent
+                      <Clock size={13} /> Sent
                     </div>
                   ) : (
                     <button
                       onClick={() => handleAdd(person)}
                       className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
                     >
-                      <UserPlus size={12} />
-                      Add
+                      <UserPlus size={12} /> Add
                     </button>
                   )}
                 </div>
@@ -160,33 +177,30 @@ export default function PTPPage() {
 
       {/* ── Tab switcher ─────────────────────────────────────────── */}
       <div className="flex gap-1 rounded-xl bg-muted p-1">
-        <button
-          onClick={() => setTab("friends")}
-          className={`relative flex-1 rounded-lg py-1.5 text-xs font-medium transition-colors ${
-            tab === "friends" ? "bg-card shadow-sm" : "text-muted-foreground"
-          }`}
-        >
-          Friends
-          {friends.length > 0 && (
-            <span className="ml-1 text-muted-foreground">({friends.length})</span>
-          )}
-        </button>
-        <button
-          onClick={() => setTab("requests")}
-          className={`relative flex-1 rounded-lg py-1.5 text-xs font-medium transition-colors ${
-            tab === "requests" ? "bg-card shadow-sm" : "text-muted-foreground"
-          }`}
-        >
-          Requests
-          {incomingRequests.length > 0 && (
-            <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white">
-              {incomingRequests.length}
-            </span>
-          )}
-        </button>
+        {[
+          { key: "friends",  label: `Friends (${friends.length})` },
+          { key: "requests", label: "Requests", badge: totalRequests },
+          { key: "groups",   label: `Groups (${myGroups.length})` },
+        ].map(({ key, label, badge }) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={cn(
+              "relative flex-1 rounded-lg py-1.5 text-xs font-medium transition-colors",
+              tab === key ? "bg-card shadow-sm" : "text-muted-foreground"
+            )}
+          >
+            {label}
+            {badge > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white">
+                {badge}
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
-      {/* ── Tab: Friends ─────────────────────────────────────────── */}
+      {/* ════════════════ Tab: Friends ════════════════ */}
       {tab === "friends" && (
         <div className="overflow-hidden rounded-xl border border-border bg-card">
           {loading ? (
@@ -219,14 +233,15 @@ export default function PTPPage() {
         </div>
       )}
 
-      {/* ── Tab: Requests ────────────────────────────────────────── */}
+      {/* ════════════════ Tab: Requests ════════════════ */}
       {tab === "requests" && (
         <div className="space-y-3">
-          {/* Incoming */}
+
+          {/* Friend requests — incoming */}
           {incomingRequests.length > 0 && (
             <div className="overflow-hidden rounded-xl border border-border bg-card">
               <p className="border-b border-border px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Incoming ({incomingRequests.length})
+                Friend Requests ({incomingRequests.length})
               </p>
               <div className="divide-y divide-border">
                 {incomingRequests.map(req => (
@@ -237,16 +252,12 @@ export default function PTPPage() {
                       <p className="text-xs text-muted-foreground">wants to study together</p>
                     </div>
                     <div className="flex gap-2">
-                      <button
-                        onClick={() => acceptRequest(req)}
-                        className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-white"
-                      >
+                      <button onClick={() => acceptRequest(req)}
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-white">
                         <Check size={14} />
                       </button>
-                      <button
-                        onClick={() => rejectRequest(req.id)}
-                        className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-                      >
+                      <button onClick={() => rejectRequest(req.id)}
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors">
                         <X size={14} />
                       </button>
                     </div>
@@ -256,7 +267,41 @@ export default function PTPPage() {
             </div>
           )}
 
-          {/* Outgoing */}
+          {/* Group invitations */}
+          {groupInvites.length > 0 && (
+            <div className="overflow-hidden rounded-xl border border-border bg-card">
+              <p className="border-b border-border px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Group Invites ({groupInvites.length})
+              </p>
+              <div className="divide-y divide-border">
+                {groupInvites.map(inv => (
+                  <div key={inv.id} className="flex items-center gap-3 px-4 py-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                      <UsersRound size={18} className="text-primary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold">{inv.groupName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Invited by {inv.fromName}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => acceptInvite(inv)}
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-white">
+                        <Check size={14} />
+                      </button>
+                      <button onClick={() => rejectInvite(inv.id)}
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors">
+                        <X size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Sent friend requests */}
           {outgoingRequests.length > 0 && (
             <div className="overflow-hidden rounded-xl border border-border bg-card">
               <p className="border-b border-border px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -278,10 +323,78 @@ export default function PTPPage() {
           )}
 
           {/* Empty state */}
-          {incomingRequests.length === 0 && outgoingRequests.length === 0 && (
+          {incomingRequests.length === 0 && outgoingRequests.length === 0 && groupInvites.length === 0 && (
             <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card py-14">
               <User2 size={38} className="text-muted-foreground/30" />
               <p className="text-sm font-medium text-muted-foreground">No pending requests</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ════════════════ Tab: Groups ════════════════ */}
+      {tab === "groups" && (
+        <div className="space-y-3">
+
+          {/* Create group button / form */}
+          <button
+            onClick={() => { setCreatingGroup(v => !v); setGroupError(""); }}
+            className={cn(
+              "flex w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-medium transition-colors",
+              creatingGroup
+                ? "border-border bg-muted text-muted-foreground"
+                : "border-primary bg-primary/5 text-primary hover:bg-primary/10"
+            )}
+          >
+            {creatingGroup ? <X size={15} /> : <Plus size={15} />}
+            {creatingGroup ? "Cancel" : "Create Study Group"}
+          </button>
+
+          {creatingGroup && (
+            <form onSubmit={handleCreateGroup} className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4">
+              <input
+                autoFocus
+                value={groupName}
+                onChange={e => setGroupName(e.target.value)}
+                placeholder="Group name e.g. BCA Batch 26"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+              {groupError && <p className="text-xs text-destructive">{groupError}</p>}
+              <button
+                type="submit"
+                disabled={!groupName.trim()}
+                className="w-full rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+              >
+                Create & Open
+              </button>
+            </form>
+          )}
+
+          {/* Groups list */}
+          {myGroups.length === 0 && !creatingGroup ? (
+            <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card py-14">
+              <UsersRound size={38} className="text-muted-foreground/30" />
+              <p className="text-sm font-medium text-muted-foreground">No study groups yet</p>
+              <p className="text-xs text-muted-foreground">Create a group or accept an invitation</p>
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-xl border border-border bg-card divide-y divide-border">
+              {myGroups.map(g => (
+                <button
+                  key={g.id}
+                  onClick={() => navigate(`/ptp/group/${g.groupId}`)}
+                  className="flex w-full items-center gap-3 px-4 py-3 hover:bg-accent transition-colors text-left"
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                    <UsersRound size={17} className="text-primary" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{g.name}</p>
+                    <p className="text-xs text-muted-foreground">Tap to open</p>
+                  </div>
+                  <ChevronRight size={15} className="shrink-0 text-muted-foreground" />
+                </button>
+              ))}
             </div>
           )}
         </div>
