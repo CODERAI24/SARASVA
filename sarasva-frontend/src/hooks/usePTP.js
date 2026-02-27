@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { onSnapshot, query, where, collection } from "firebase/firestore";
 import { db, userCol } from "@/firebase/config.js";
 import { useAuth } from "@/context/AuthContext.jsx";
@@ -56,17 +56,18 @@ export function usePTP() {
   }, [user]);
 
   const searchUsers = useCallback(async (nameQuery) => {
-    if (!nameQuery.trim() || !user) return [];
+    if (!nameQuery.trim() || !user) return { results: [], error: null };
     try {
       const results = await ptpService.searchUsers(nameQuery.trim());
-      // Filter out self and existing friends
-      return results.filter(u =>
-        u.uid !== user.id &&
-        !friends.find(f => f.uid === u.uid)
-      );
+      return {
+        results: results.filter(u =>
+          u.uid !== user.id &&
+          !friends.find(f => f.uid === u.uid)
+        ),
+        error: null,
+      };
     } catch (err) {
-      setError(err.message);
-      return [];
+      return { results: [], error: err.message };
     }
   }, [user, friends]);
 

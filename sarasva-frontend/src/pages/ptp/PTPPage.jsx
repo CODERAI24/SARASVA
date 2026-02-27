@@ -32,6 +32,7 @@ export default function PTPPage() {
   const [searchQuery,    setSearchQuery]    = useState("");
   const [searchResults,  setSearchResults]  = useState([]);
   const [searching,      setSearching]      = useState(false);
+  const [searchError,    setSearchError]    = useState(null);
   const [requestSentMap, setRequestSentMap] = useState({}); // uid → true (optimistic)
   const [tab,            setTab]            = useState("friends"); // "friends" | "requests"
   const debounceRef = useRef(null);
@@ -39,12 +40,14 @@ export default function PTPPage() {
   /* ── Search ──────────────────────────────────────────────────── */
   async function handleSearchChange(val) {
     setSearchQuery(val);
+    setSearchError(null);
     clearTimeout(debounceRef.current);
     if (!val.trim()) { setSearchResults([]); return; }
     debounceRef.current = setTimeout(async () => {
       setSearching(true);
-      const results = await searchUsers(val);
+      const { results, error } = await searchUsers(val);
       setSearchResults(results);
+      setSearchError(error);
       setSearching(false);
     }, 400);
   }
@@ -93,7 +96,7 @@ export default function PTPPage() {
         />
         {searchQuery && (
           <button
-            onClick={() => { setSearchQuery(""); setSearchResults([]); }}
+            onClick={() => { setSearchQuery(""); setSearchResults([]); setSearchError(null); }}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
           >
             <X size={14} />
@@ -109,6 +112,13 @@ export default function PTPPage() {
           </p>
           {searching ? (
             <p className="py-8 text-center text-sm text-muted-foreground">Searching…</p>
+          ) : searchError ? (
+            <div className="px-4 py-6 text-center">
+              <p className="text-sm font-medium text-destructive">Search failed</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Firestore rules may not be published yet. Go to Firebase Console → Firestore → Rules and publish the rules from <code className="font-mono">firestore.rules</code>.
+              </p>
+            </div>
           ) : searchResults.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">No users found.</p>
           ) : (

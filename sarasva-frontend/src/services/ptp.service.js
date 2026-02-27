@@ -23,21 +23,26 @@ function friendRequestRef(id) {
 }
 
 export const ptpService = {
-  /** Write/update public profile — called during register and updateProfile */
+  /** Write/update public profile — called during register, login, and updateProfile */
   async upsertPublicProfile(uid, { name, course }) {
+    const n = name ?? "";
     await setDoc(
       publicProfileRef(uid),
-      { name: name ?? "", course: course ?? "", uid },
+      { name: n, nameLower: n.toLowerCase(), course: course ?? "", uid },
       { merge: true }
     );
   },
 
-  /** Search users by name prefix (case-sensitive, Firestore range query) */
+  /**
+   * Search users by name prefix — case-insensitive via the nameLower field.
+   * Firestore range query: nameLower >= query && nameLower <= query + '\uf8ff'
+   */
   async searchUsers(nameQuery) {
+    const lower = nameQuery.toLowerCase();
     const q = query(
       collection(db, "publicProfiles"),
-      where("name", ">=", nameQuery),
-      where("name", "<=", nameQuery + "\uf8ff"),
+      where("nameLower", ">=", lower),
+      where("nameLower", "<=", lower + "\uf8ff"),
       limit(20)
     );
     const snap = await getDocs(q);

@@ -20,9 +20,10 @@ import { auth, db } from "@/firebase/config.js";
 
 /** Write searchable public profile so PTP peer search works */
 async function upsertPublicProfile(uid, { name, course }) {
+  const n = name ?? "";
   await setDoc(
     doc(db, "publicProfiles", uid),
-    { name: name ?? "", course: course ?? "", uid },
+    { name: n, nameLower: n.toLowerCase(), course: course ?? "", uid },
     { merge: true }
   );
 }
@@ -84,7 +85,13 @@ export const authService = {
       await upsertPublicProfile(cred.user.uid, { name: profile.name, course: "" });
       return buildUser(cred.user, profile);
     }
-    return buildUser(cred.user, snap.data());
+    // Backfill publicProfile for returning Google users who existed before PTP
+    const existingProfile = snap.data();
+    upsertPublicProfile(cred.user.uid, {
+      name:   existingProfile.name   ?? cred.user.displayName ?? "",
+      course: existingProfile.course ?? "",
+    }).catch(() => {}); // non-blocking, best-effort
+    return buildUser(cred.user, existingProfile);
   },
 
   async login({ email, password }) {
@@ -92,6 +99,11 @@ export const authService = {
       const cred    = await signInWithEmailAndPassword(auth, email, password);
       const snap    = await getDoc(profileRef(cred.user.uid));
       const profile = snap.exists() ? snap.data() : {};
+      // Backfill publicProfile for users who registered before PTP feature
+      upsertPublicProfile(cred.user.uid, {
+        name:   profile.name   ?? cred.user.displayName ?? "",
+        course: profile.course ?? "",
+      }).catch(() => {}); // non-blocking, best-effort
       return buildUser(cred.user, profile);
     } catch (err) {
       if (err.code === "auth/invalid-credential" || err.code === "auth/wrong-password") {
