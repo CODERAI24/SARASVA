@@ -140,6 +140,11 @@ export const authService = {
     if (!firebaseUser) return null;
     const snap    = await getDoc(profileRef(firebaseUser.uid));
     const profile = snap.exists() ? snap.data() : {};
+    // Backfill / refresh public profile on every app startup so nameLower is always present
+    upsertPublicProfile(firebaseUser.uid, {
+      name:   profile.name   ?? firebaseUser.displayName ?? "",
+      course: profile.course ?? "",
+    }).catch(() => {}); // non-blocking
     return buildUser(firebaseUser, profile);
   },
 

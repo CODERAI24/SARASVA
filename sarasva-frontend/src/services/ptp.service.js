@@ -6,7 +6,7 @@
  */
 import {
   doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
-  collection, query, where, limit,
+  collection, query, where,
 } from "firebase/firestore";
 import { db, userCol, userDoc } from "@/firebase/config.js";
 
@@ -34,19 +34,15 @@ export const ptpService = {
   },
 
   /**
-   * Search users by name prefix — case-insensitive via the nameLower field.
-   * Firestore range query: nameLower >= query && nameLower <= query + '\uf8ff'
+   * Search users by name substring — client-side filter so it works even for
+   * legacy docs that were created before the nameLower field was added.
    */
   async searchUsers(nameQuery) {
     const lower = nameQuery.toLowerCase();
-    const q = query(
-      collection(db, "publicProfiles"),
-      where("nameLower", ">=", lower),
-      where("nameLower", "<=", lower + "\uf8ff"),
-      limit(20)
-    );
-    const snap = await getDocs(q);
-    return snap.docs.map(d => ({ ...d.data() }));
+    const snap = await getDocs(collection(db, "publicProfiles"));
+    return snap.docs
+      .map(d => d.data())
+      .filter(u => (u.name ?? "").toLowerCase().includes(lower));
   },
 
   /** Send a friend request */
