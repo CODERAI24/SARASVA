@@ -18,6 +18,15 @@ import {
 import { doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
 import { auth, db } from "@/firebase/config.js";
 
+/** Write searchable public profile so PTP peer search works */
+async function upsertPublicProfile(uid, { name, course }) {
+  await setDoc(
+    doc(db, "publicProfiles", uid),
+    { name: name ?? "", course: course ?? "", uid },
+    { merge: true }
+  );
+}
+
 const DEFAULT_SETTINGS = {
   focusModeEnabled:   true,
   strictFocusEnabled: false,
@@ -54,6 +63,7 @@ export const authService = {
     // Store extended profile in Firestore
     const profile = { name, course, semester, settings: DEFAULT_SETTINGS };
     await setDoc(profileRef(cred.user.uid), profile);
+    await upsertPublicProfile(cred.user.uid, { name, course });
 
     return buildUser(cred.user, profile);
   },
@@ -71,6 +81,7 @@ export const authService = {
         settings: DEFAULT_SETTINGS,
       };
       await setDoc(profileRef(cred.user.uid), profile);
+      await upsertPublicProfile(cred.user.uid, { name: profile.name, course: "" });
       return buildUser(cred.user, profile);
     }
     return buildUser(cred.user, snap.data());
@@ -133,6 +144,7 @@ export const authService = {
     if (!firebaseUser) throw new Error("Not logged in.");
     await updateProfile(firebaseUser, { displayName: name });
     await updateDoc(profileRef(firebaseUser.uid), { name, course, semester });
+    await upsertPublicProfile(firebaseUser.uid, { name, course });
     const snap = await getDoc(profileRef(firebaseUser.uid));
     return buildUser(firebaseUser, snap.data());
   },

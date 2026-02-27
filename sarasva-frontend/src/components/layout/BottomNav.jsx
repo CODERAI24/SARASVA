@@ -2,24 +2,26 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
   CalendarCheck,
-  CalendarDays,
   BookOpen,
   CheckSquare,
-  Library,
+  Users2,
 } from "lucide-react";
 import { cn } from "@/lib/utils.js";
 
+/**
+ * Subjects and Schedule are accessible via the hamburger SideDrawer.
+ * PTP (Study Peers) replaces them here.
+ */
 const ITEMS = [
-  { to: "/dashboard",  label: "Home",     icon: LayoutDashboard },
-  { to: "/attendance", label: "Attend",   icon: CalendarCheck   },
-  { to: "/timetable",  label: "Schedule", icon: CalendarDays    },
-  { to: "/subjects",   label: "Subjects", icon: Library         },
-  { to: "/exams",      label: "Exams",    icon: BookOpen        },
-  { to: "/tasks",      label: "Tasks",    icon: CheckSquare     },
+  { to: "/dashboard",  label: "Home",   icon: LayoutDashboard },
+  { to: "/attendance", label: "Attend", icon: CalendarCheck   },
+  { to: "/exams",      label: "Exams",  icon: BookOpen        },
+  { to: "/tasks",      label: "Tasks",  icon: CheckSquare     },
+  { to: "/ptp",        label: "Peers",  icon: Users2          },
 ];
 
 /**
- * Fixed bottom navigation bar — visible only on mobile (hidden on md+).
+ * Fixed bottom navigation bar — visible only on mobile (hidden on lg+).
  */
 export default function BottomNav() {
   return (

@@ -8,6 +8,8 @@ import {
   Library,
   LogOut,
   UserCircle,
+  Calendar,
+  Users2,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth.js";
 import { cn } from "@/lib/utils.js";
@@ -19,6 +21,8 @@ const NAV_ITEMS = [
   { to: "/subjects",   label: "Subjects",   icon: Library         },
   { to: "/exams",      label: "Exams",      icon: BookOpen        },
   { to: "/tasks",      label: "Tasks",      icon: CheckSquare     },
+  { to: "/calendar",   label: "Calendar",   icon: Calendar        },
+  { to: "/ptp",        label: "Study Peers",icon: Users2          },
 ];
 
 export default function Navbar() {

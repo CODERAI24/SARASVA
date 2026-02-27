@@ -1,16 +1,20 @@
+import { useState } from "react";
 import { Outlet, Link } from "react-router-dom";
-import { UserCircle } from "lucide-react";
-import Navbar    from "./Navbar.jsx";
-import BottomNav from "./BottomNav.jsx";
+import { UserCircle, Menu } from "lucide-react";
+import Navbar      from "./Navbar.jsx";
+import BottomNav   from "./BottomNav.jsx";
+import SideDrawer  from "./SideDrawer.jsx";
 import { useAuth } from "@/hooks/useAuth.js";
 
 /**
  * Wraps every authenticated page with:
  *   Desktop — left sidebar (Navbar)
- *   Mobile  — top header + bottom navigation bar (BottomNav)
+ *   Mobile  — top header (with hamburger) + bottom navigation bar (BottomNav)
+ *             + slide-in SideDrawer for quick actions
  */
 export default function AppLayout() {
   const { user } = useAuth();
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -22,7 +26,17 @@ export default function AppLayout() {
 
         {/* Mobile/tablet top bar — hidden on desktop */}
         <header className="flex lg:hidden shrink-0 items-center justify-between border-b border-border bg-card px-4 py-3">
-          <span className="text-lg font-bold tracking-tight">Sarasva</span>
+          <div className="flex items-center gap-3">
+            {/* Hamburger — opens SideDrawer */}
+            <button
+              onClick={() => setDrawerOpen(true)}
+              className="-ml-1 rounded-lg p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              aria-label="Open quick actions"
+            >
+              <Menu size={20} />
+            </button>
+            <span className="text-lg font-bold tracking-tight">Sarasva</span>
+          </div>
           <Link to="/profile" className="text-muted-foreground hover:text-foreground" title="Profile">
             <UserCircle size={22} />
           </Link>
@@ -37,6 +51,9 @@ export default function AppLayout() {
 
       {/* Mobile bottom nav — fixed to viewport, hidden on desktop */}
       <BottomNav />
+
+      {/* Slide-in quick-actions drawer (mobile only) */}
+      <SideDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </div>
   );
 }
