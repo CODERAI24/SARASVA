@@ -1,5 +1,5 @@
 /**
- * Notifications service — Browser Push + EmailJS email alerts.
+ * Notifications service — Browser Push + EmailJS email alerts + Period/Task scheduling.
  *
  * EmailJS Setup (free at emailjs.com):
  *  1. Create account → add Email Service (Gmail recommended)
@@ -17,7 +17,19 @@ const PUBLIC_KEY = "ED2eDc6-CLeSavBsg";
 const TPL_ATTEND = import.meta.env.VITE_EMAILJS_TPL_ATTEND || "";
 const TPL_TASK   = import.meta.env.VITE_EMAILJS_TPL_TASK   || "";
 
-const APP_ICON = "/SARASVA/icon.svg";
+const APP_ICON = "/SARASVA/logo.png";
+const BASE_HASH = window.location.origin + "/SARASVA/#";
+
+const DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+// Track scheduled timers for cleanup on re-schedule
+let _periodTimers = [];
+let _taskTimers   = [];
+
+function todayDateStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
 
 /* ── Browser Push ─────────────────────────────────────────────────── */
 export const notificationsService = {
@@ -35,18 +47,91 @@ export const notificationsService = {
   },
 
   /**
-   * Show a browser push notification.
+   * Show a browser push notification with optional click-through URL.
    * @param {string} title
    * @param {string} body
+   * @param {object} opts — { tag, path } where path is e.g. "/attendance"
    */
-  push(title, body) {
+  push(title, body, { tag, path } = {}) {
     if (!("Notification" in window)) return;
     if (Notification.permission !== "granted") return;
     try {
-      new Notification(title, { body, icon: APP_ICON, badge: APP_ICON });
+      const n = new Notification(title, { body, icon: APP_ICON, badge: APP_ICON, tag });
+      if (path) {
+        n.onclick = () => { window.focus(); window.location.href = BASE_HASH + path; };
+      }
     } catch {
       // Ignore — some browsers block new Notification() outside service worker
     }
+  },
+
+  /**
+   * Schedule period (class) notifications for today.
+   * Shows a notification 5 minutes before each class, clickable → /attendance.
+   *
+   * @param {Array}    slots          — active timetable slots for all active TTs
+   * @param {Function} getSubjectName — (subjectId) => name string
+   */
+  schedulePeriodNotifications(slots, getSubjectName) {
+    _periodTimers.forEach(clearTimeout);
+    _periodTimers = [];
+    if (Notification.permission !== "granted") return;
+
+    const now      = new Date();
+    const todayDay = DAYS[now.getDay()];
+
+    slots
+      .filter((s) => s.day === todayDay)
+      .forEach((slot) => {
+        if (!slot.startTime) return;
+        const [h, m] = slot.startTime.split(":").map(Number);
+        const fireAt = new Date(now);
+        fireAt.setHours(h, Math.max(0, m - 5), 0, 0); // 5 min before
+        const delay  = fireAt - now;
+        if (delay <= 0) return;
+
+        const subjectName = getSubjectName?.(slot.subjectId) || slot.subjectName || "Class";
+        const timer = setTimeout(() => {
+          this.push(
+            `🔔 ${subjectName} in 5 minutes`,
+            `Starting at ${slot.startTime}${slot.room ? " · " + slot.room : ""} — mark attendance after class!`,
+            { tag: `period-${slot.id ?? slot.subjectId}`, path: "/attendance" }
+          );
+        }, delay);
+        _periodTimers.push(timer);
+      });
+  },
+
+  /**
+   * Schedule pending-task reminders every 2 hours for tasks due today.
+   * Fires at +2h, +4h, +6h from now (capped at 10 PM).
+   *
+   * @param {Array} tasks
+   */
+  scheduleTaskReminders(tasks) {
+    _taskTimers.forEach(clearTimeout);
+    _taskTimers = [];
+    if (Notification.permission !== "granted") return;
+
+    const today   = todayDateStr();
+    const pending = tasks.filter((t) => !t.completed && !t.archived && t.dueDate === today);
+    if (!pending.length) return;
+
+    const now      = new Date();
+    const endOfDay = new Date(now); endOfDay.setHours(22, 0, 0, 0);
+
+    [2, 4, 6].forEach((hrs) => {
+      const fireAt = new Date(now.getTime() + hrs * 3600 * 1000);
+      if (fireAt > endOfDay) return;
+      const timer = setTimeout(() => {
+        this.push(
+          `📋 ${pending.length} task${pending.length !== 1 ? "s" : ""} due today`,
+          pending.slice(0, 3).map((t) => t.title).join(" · "),
+          { tag: "tasks-due-today", path: "/tasks" }
+        );
+      }, fireAt - now);
+      _taskTimers.push(timer);
+    });
   },
 
   /* ── EmailJS ──────────────────────────────────────────────────────── */
@@ -120,7 +205,8 @@ export const notificationsService = {
     if (riskSubjects.length > 0) {
       this.push(
         "Attendance Risk ⚠️",
-        `${riskSubjects.length} subject${riskSubjects.length !== 1 ? "s" : ""} below 75% — check your dashboard.`
+        `${riskSubjects.length} subject${riskSubjects.length !== 1 ? "s" : ""} below 75% — check your dashboard.`,
+        { tag: "att-risk", path: "/attendance" }
       );
       if (user.notificationsEmail && user.email) {
         this.sendAttendanceAlert(user.email, user.name, riskSubjects);
@@ -130,7 +216,8 @@ export const notificationsService = {
     if (overdueTasks.length > 0) {
       this.push(
         "Overdue Tasks",
-        `${overdueTasks.length} task${overdueTasks.length !== 1 ? "s" : ""} past due date.`
+        `${overdueTasks.length} task${overdueTasks.length !== 1 ? "s" : ""} past due date.`,
+        { tag: "tasks-overdue", path: "/tasks" }
       );
       if (user.notificationsEmail && user.email) {
         this.sendTaskAlert(user.email, user.name, overdueTasks);

@@ -11,13 +11,17 @@ import { useAttendanceSummary, useAttendanceToday } from "@/hooks/useAttendance.
 import { useTasks }            from "@/hooks/useTasks.js";
 import { useExams }            from "@/hooks/useExams.js";
 import { useHabits }           from "@/hooks/useHabits.js";
+import { useTimetable }        from "@/hooks/useTimetable.js";
+import { useSubjects }         from "@/hooks/useSubjects.js";
+import { useMotivationalQuote } from "@/hooks/useQuotes.js";
 import { notificationsService } from "@/services/notifications.service.js";
+import { tasksService }        from "@/services/tasks.service.js";
 import { cn }                  from "@/lib/utils.js";
 import {
   ShieldCheck, ShieldAlert, CalendarCheck,
   Target, ListChecks, BookOpen, ArrowRight,
   CheckCircle2, Circle, Plus, Clock, Flame, CheckCheck,
-  Repeat2, Check, ChevronRight,
+  Repeat2, Check, ChevronRight, Timer, Quote, Trash2,
 } from "lucide-react";
 
 /* ── helpers ─────────────────────────────────────────────────────── */
@@ -121,6 +125,102 @@ function TargetPanel({ subjects }) {
         </div>
       ))}
     </div>
+  );
+}
+
+/* ── Exam Countdown Banner ────────────────────────────────────────── */
+function ExamCountdownBanner({ exams }) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Only exams with a future (or today) examDate, sorted by nearest
+  const upcoming = exams
+    .filter((e) => !e.archived && e.examDate)
+    .map((e) => {
+      const examDay = new Date(e.examDate + "T00:00:00");
+      const days = Math.ceil((examDay - today) / 86400000);
+      return { ...e, daysLeft: days };
+    })
+    .filter((e) => e.daysLeft >= 0)
+    .sort((a, b) => a.daysLeft - b.daysLeft);
+
+  if (upcoming.length === 0) return null;
+
+  const nearest = upcoming[0];
+  const isUrgent = nearest.daysLeft <= 3;
+  const isWarning = nearest.daysLeft <= 7;
+
+  return (
+    <Link to="/exams">
+      <div className={cn(
+        "rounded-2xl border p-4 card-shadow transition-shadow hover:shadow-md",
+        isUrgent
+          ? "border-rose-300 bg-gradient-to-r from-rose-50 to-orange-50"
+          : isWarning
+            ? "border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50"
+            : "border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50"
+      )}>
+        <div className="flex items-center gap-4">
+          {/* Countdown display */}
+          <div className={cn(
+            "flex flex-col items-center justify-center rounded-2xl px-4 py-2 min-w-[72px] text-center",
+            isUrgent ? "bg-rose-100" : isWarning ? "bg-amber-100" : "bg-blue-100"
+          )}>
+            <span className={cn(
+              "text-3xl font-extrabold leading-none",
+              isUrgent ? "text-rose-700" : isWarning ? "text-amber-700" : "text-blue-700"
+            )}>
+              {nearest.daysLeft}
+            </span>
+            <span className={cn(
+              "text-[10px] font-semibold uppercase tracking-wide mt-0.5",
+              isUrgent ? "text-rose-600" : isWarning ? "text-amber-600" : "text-blue-600"
+            )}>
+              day{nearest.daysLeft !== 1 ? "s" : ""}
+            </span>
+          </div>
+
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <Timer size={14} className={cn(
+                isUrgent ? "text-rose-600" : isWarning ? "text-amber-600" : "text-blue-600"
+              )} />
+              <p className={cn(
+                "text-xs font-semibold uppercase tracking-wide",
+                isUrgent ? "text-rose-600" : isWarning ? "text-amber-700" : "text-blue-600"
+              )}>
+                {isUrgent ? "Exam very soon!" : isWarning ? "Exam coming up" : "Upcoming exam"}
+              </p>
+            </div>
+            <p className="mt-0.5 text-base font-bold truncate">{nearest.name}</p>
+            <p className={cn(
+              "text-xs",
+              isUrgent ? "text-rose-600" : isWarning ? "text-amber-600" : "text-muted-foreground"
+            )}>
+              {new Date(nearest.examDate + "T12:00:00").toLocaleDateString("en-IN", {
+                weekday: "long", day: "numeric", month: "long",
+              })}
+            </p>
+            {nearest.subjects.length > 0 && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {nearest.subjects.length} subject{nearest.subjects.length !== 1 ? "s" : ""} · tap to prep
+              </p>
+            )}
+          </div>
+
+          {/* Other upcoming exams count */}
+          {upcoming.length > 1 && (
+            <div className="shrink-0 flex flex-col items-center gap-0.5">
+              <span className="text-xs text-muted-foreground">+{upcoming.length - 1}</span>
+              <span className="text-[10px] text-muted-foreground">more</span>
+            </div>
+          )}
+
+          <ChevronRight size={16} className="shrink-0 text-muted-foreground" />
+        </div>
+      </div>
+    </Link>
   );
 }
 
@@ -435,6 +535,53 @@ function HabitTrackerPanel() {
   );
 }
 
+/* ── Motivational Quote Card ─────────────────────────────────────── */
+function QuoteCard({ quote }) {
+  if (!quote) return null;
+  return (
+    <div className="rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/5 to-violet-500/5 p-4 card-shadow">
+      <div className="flex gap-3">
+        <Quote size={18} className="text-primary/40 shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm font-medium leading-relaxed text-foreground italic">
+            {quote.text}
+          </p>
+          {quote.author && (
+            <p className="mt-1 text-xs text-muted-foreground">— {quote.author}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Task Cleanup Prompt ─────────────────────────────────────────── */
+function TaskCleanupPrompt({ count, onAccept, onDismiss }) {
+  return (
+    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 flex items-start gap-3">
+      <Trash2 size={18} className="text-amber-600 shrink-0 mt-0.5" />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-amber-800">
+          {count} completed task{count !== 1 ? "s" : ""} older than 7 days
+        </p>
+        <p className="text-xs text-amber-700 mt-0.5">
+          Would you like to delete them to keep your task list clean?
+        </p>
+        <div className="flex gap-2 mt-2">
+          <button onClick={onAccept}
+            className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 transition-colors">
+            Delete old tasks
+          </button>
+          <button onClick={onDismiss}
+            className="rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100 transition-colors">
+            Keep them
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Page ─────────────────────────────────────────────────────────── */
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -442,16 +589,63 @@ export default function DashboardPage() {
   const { today = [], date, day, mark, marking } = useAttendanceToday();
   const { tasks = [], toggle, toggleSubtask } = useTasks({ archived: false });
   const { exams = [] }            = useExams();
+  const { timetables = [] }       = useTimetable();
+  const { subjects: allSubjects = [] } = useSubjects();
+  const quote                     = useMotivationalQuote();
 
   const pendingTasks  = tasks.filter((t) => !t.completed).length;
   const riskCount     = subjects.filter((s) => s.zone === "risk").length;
   const activeExams   = exams.filter((e) => !e.archived).length;
   const unmarkedToday = today.filter((t) => !t.alreadyMarked).length;
 
+  /* ── 7-day task cleanup prompt ─────────────────────────────────── */
+  const [staleTaskIds,    setStaleTaskIds]    = useState([]);
+  const [showCleanup,     setShowCleanup]     = useState(false);
+
+  useEffect(() => {
+    if (!tasks.length) return;
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const stale  = tasks.filter((t) => {
+      if (!t.completed) return false;
+      const ts = t.completedAt ?? t.updatedAt ?? t.createdAt ?? "";
+      return ts && new Date(ts).getTime() < cutoff;
+    });
+    if (stale.length > 0) {
+      setStaleTaskIds(stale.map((t) => t.id));
+      // Only prompt once per session
+      const key = "sarasva_cleanup_prompted";
+      if (!sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, "1");
+        setShowCleanup(true);
+      }
+    }
+  }, [tasks]);
+
+  async function handleCleanupAccept() {
+    setShowCleanup(false);
+    for (const id of staleTaskIds) {
+      try { await tasksService.archive(user.id, id); } catch {}
+    }
+    setStaleTaskIds([]);
+  }
+
+  /* ── Notification scheduling ───────────────────────────────────── */
   useEffect(() => {
     if (!user || subjects.length === 0) return;
     notificationsService.checkAndAlert(user, subjects, tasks);
   }, [user, subjects, tasks]);
+
+  useEffect(() => {
+    // Schedule period notifications from active timetable slots
+    const activeTTs = timetables.filter((t) => t.active);
+    const allSlots  = activeTTs.flatMap((t) => t.slots ?? []);
+    const subjMap   = Object.fromEntries(allSubjects.map((s) => [s.id, s.name]));
+    notificationsService.schedulePeriodNotifications(allSlots, (id) => subjMap[id]);
+  }, [timetables, allSubjects]);
+
+  useEffect(() => {
+    notificationsService.scheduleTaskReminders(tasks);
+  }, [tasks]);
 
   const barData = useMemo(() =>
     subjects.map((s) => ({
@@ -481,6 +675,21 @@ export default function DashboardPage() {
           {greeting}, <span className="font-medium text-foreground">{user?.name?.split(" ")[0]}</span>
         </p>
       </div>
+
+      {/* Motivational quote — changes every hour */}
+      <QuoteCard quote={quote} />
+
+      {/* Exam countdown — prominent, right below greeting */}
+      <ExamCountdownBanner exams={exams} />
+
+      {/* 7-day task cleanup prompt */}
+      {showCleanup && staleTaskIds.length > 0 && (
+        <TaskCleanupPrompt
+          count={staleTaskIds.length}
+          onAccept={handleCleanupAccept}
+          onDismiss={() => setShowCleanup(false)}
+        />
+      )}
 
       {/* Tasks banner */}
       <DashboardTasksBanner tasks={tasks} toggle={toggle} toggleSubtask={toggleSubtask} />

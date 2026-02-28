@@ -108,5 +108,20 @@ export function useTimetable() {
     } catch (err) { setError(err.message); }
   }, [user, timetables]);
 
-  return { timetables, loading, error, create, activate, archive, addSlot, deleteSlot };
+  /** Import a shared timetable (from P2P) into the user's own timetable list. */
+  const importTimetable = useCallback(async ({ name, slots = [] }) => {
+    if (!user) return;
+    try {
+      await addDoc(userCol(user.id, "timetables"), {
+        name,
+        startDate: null,
+        active:    false,
+        archived:  false,
+        slots:     slots.map((s) => ({ ...s, id: crypto.randomUUID() })),
+        createdAt: new Date().toISOString(),
+      });
+    } catch (err) { setError(err.message); }
+  }, [user]);
+
+  return { timetables, loading, error, create, activate, archive, addSlot, deleteSlot, importTimetable };
 }

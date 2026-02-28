@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Outlet, Link } from "react-router-dom";
-import { UserCircle, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 import Navbar      from "./Navbar.jsx";
 import BottomNav   from "./BottomNav.jsx";
 import SideDrawer  from "./SideDrawer.jsx";
 import { useAuth } from "@/hooks/useAuth.js";
+import UserAvatar  from "@/components/UserAvatar.jsx";
 
 /**
  * Wraps every authenticated page with:
@@ -37,8 +38,8 @@ export default function AppLayout() {
             </button>
             <span className="text-lg font-bold tracking-tight">Sarasva</span>
           </div>
-          <Link to="/profile" className="text-muted-foreground hover:text-foreground" title="Profile">
-            <UserCircle size={22} />
+          <Link to="/profile" title="Profile">
+            <UserAvatar user={user} size="sm" />
           </Link>
         </header>
 

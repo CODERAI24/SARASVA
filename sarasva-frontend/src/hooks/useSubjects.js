@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { query, where, onSnapshot, addDoc, updateDoc } from "firebase/firestore";
-import { db, userCol, userDoc } from "@/firebase/config.js";
+import { userCol, userDoc } from "@/firebase/config.js";
 import { useAuth } from "@/context/AuthContext.jsx";
 
 /**
@@ -36,6 +36,7 @@ export function useSubjects({ archived = false } = {}) {
       await addDoc(userCol(user.id, "subjects"), {
         name,
         archived:  false,
+        chapters:  [],
         createdAt: new Date().toISOString(),
       });
     } catch (err) { setError(err.message); }
@@ -51,8 +52,51 @@ export function useSubjects({ archived = false } = {}) {
     await update(id, { archived: true });
   }, [update]);
 
+  const addChapter = useCallback(async (subjectId, name) => {
+    if (!user) return;
+    const subject = subjects.find((s) => s.id === subjectId);
+    if (!subject) return;
+    const chapter = { id: crypto.randomUUID(), name: name.trim() };
+    const chapters = [...(subject.chapters ?? []), chapter];
+    try { await updateDoc(userDoc(user.id, "subjects", subjectId), { chapters }); }
+    catch (err) { setError(err.message); }
+  }, [user, subjects]);
+
+  const updateChapter = useCallback(async (subjectId, chapterId, name) => {
+    if (!user) return;
+    const subject = subjects.find((s) => s.id === subjectId);
+    if (!subject) return;
+    const chapters = (subject.chapters ?? []).map((c) =>
+      c.id === chapterId ? { ...c, name: name.trim() } : c
+    );
+    try { await updateDoc(userDoc(user.id, "subjects", subjectId), { chapters }); }
+    catch (err) { setError(err.message); }
+  }, [user, subjects]);
+
+  const deleteChapter = useCallback(async (subjectId, chapterId) => {
+    if (!user) return;
+    const subject = subjects.find((s) => s.id === subjectId);
+    if (!subject) return;
+    const chapters = (subject.chapters ?? []).filter((c) => c.id !== chapterId);
+    try { await updateDoc(userDoc(user.id, "subjects", subjectId), { chapters }); }
+    catch (err) { setError(err.message); }
+  }, [user, subjects]);
+
+  /** Import a shared subject (from P2P) into the user's own subject list. */
+  const importSubject = useCallback(async ({ name, chapters = [] }) => {
+    if (!user) return;
+    try {
+      await addDoc(userCol(user.id, "subjects"), {
+        name,
+        archived:  false,
+        chapters:  chapters.map((c) => ({ id: crypto.randomUUID(), name: c.name })),
+        createdAt: new Date().toISOString(),
+      });
+    } catch (err) { setError(err.message); }
+  }, [user]);
+
   // refresh is a no-op — onSnapshot keeps the list live
   const refresh = useCallback(() => {}, []);
 
-  return { subjects, loading, error, refresh, create, update, archive };
+  return { subjects, loading, error, refresh, create, update, archive, addChapter, updateChapter, deleteChapter, importSubject };
 }

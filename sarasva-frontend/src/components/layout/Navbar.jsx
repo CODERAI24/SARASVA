@@ -7,12 +7,13 @@ import {
   CheckSquare,
   Library,
   LogOut,
-  UserCircle,
   Calendar,
   Users2,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth.js";
 import { cn } from "@/lib/utils.js";
+import UserAvatar from "@/components/UserAvatar.jsx";
 
 const NAV_ITEMS = [
   { to: "/dashboard",  label: "Dashboard",  icon: LayoutDashboard },
@@ -63,6 +64,24 @@ export default function Navbar() {
         ))}
       </nav>
 
+      {/* Admin link — only for admins */}
+      {user?.role === "admin" && (
+        <NavLink
+          to="/admin"
+          className={({ isActive }) =>
+            cn(
+              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              isActive
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            )
+          }
+        >
+          <Sparkles size={16} />
+          Admin
+        </NavLink>
+      )}
+
       {/* Profile + Logout at the bottom */}
       <div className="mt-auto flex flex-col gap-1">
         <NavLink
@@ -76,7 +95,7 @@ export default function Navbar() {
             )
           }
         >
-          <UserCircle size={16} />
+          <UserAvatar user={user} size="xs" />
           Profile
         </NavLink>
 

@@ -28,7 +28,7 @@ export const directChatService = {
    * Create a shared post between two friends.
    * type: 'task' | 'assignment' | 'exam_date' | 'exam_pattern' | 'note'
    */
-  async createPost(uid1, uid2, { authorUid, authorName, type, title, description, date }) {
+  async createPost(uid1, uid2, { authorUid, authorName, type, title, description, date, payload }) {
     const cid = chatId(uid1, uid2);
     // Ensure chat doc exists (merge so we don't overwrite)
     await setDoc(doc(db, "directChats", cid), {
@@ -43,6 +43,7 @@ export const directChatService = {
       title,
       description: description ?? "",
       date:        date ?? null,
+      payload:     payload ?? null,
       savedBy:     [],
       createdAt:   new Date().toISOString(),
     });

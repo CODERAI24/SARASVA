@@ -47,10 +47,9 @@ export const groupsService = {
     const dup = await getDocs(query(
       groupInvites(),
       where("groupId", "==", groupId),
-      where("toUid",   "==", toUid),
-      where("status",  "==", "pending")
+      where("toUid",   "==", toUid)
     ));
-    if (!dup.empty) throw new Error("Invite already sent.");
+    if (dup.docs.some((d) => d.data().status === "pending")) throw new Error("Invite already sent.");
 
     await addDoc(groupInvites(), {
       groupId, groupName, fromUid, fromName, toUid, toName,
@@ -128,11 +127,12 @@ export const groupsService = {
    * Create a shared post in a group.
    * type: 'task' | 'assignment' | 'exam_date' | 'exam_pattern' | 'note'
    */
-  async createPost(groupId, { authorUid, authorName, type, title, description, date }) {
+  async createPost(groupId, { authorUid, authorName, type, title, description, date, payload }) {
     await addDoc(groupPostsCol(groupId), {
       authorUid, authorName, type, title,
       description: description ?? "",
       date:        date ?? null,
+      payload:     payload ?? null,
       savedBy:     [],
       createdAt:   new Date().toISOString(),
     });

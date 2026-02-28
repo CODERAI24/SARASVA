@@ -1,18 +1,23 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  ArrowLeft, Users, Plus, X, Check, Bookmark, BookmarkCheck,
+  ArrowLeft, Users, Plus, X, Bookmark, BookmarkCheck,
   Calendar, ClipboardList, BookOpen, FileText, StickyNote,
   UserPlus, ChevronDown, ChevronUp, Trash2, LogOut,
+  Library, CalendarDays, Download,
 } from "lucide-react";
 import { useGroupDetail, useGroups } from "@/hooks/useGroups.js";
-import { usePTP } from "@/hooks/usePTP.js";
-import { useAuth } from "@/hooks/useAuth.js";
+import { usePTP }       from "@/hooks/usePTP.js";
+import { useSubjects }  from "@/hooks/useSubjects.js";
+import { useTimetable } from "@/hooks/useTimetable.js";
+import { useAuth }      from "@/hooks/useAuth.js";
 import { tasksService } from "@/services/tasks.service.js";
-import { cn } from "@/lib/utils.js";
+import { cn }           from "@/lib/utils.js";
 
 /* ── Post type config ────────────────────────────────────────────── */
 const POST_TYPES = [
+  { value: "note",         label: "Note",         icon: StickyNote,
+    bg: "bg-emerald-100 dark:bg-emerald-950/40", text: "text-emerald-700 dark:text-emerald-400" },
   { value: "task",         label: "Task",         icon: ClipboardList,
     bg: "bg-blue-100 dark:bg-blue-950/40",   text: "text-blue-700 dark:text-blue-400" },
   { value: "assignment",   label: "Assignment",   icon: FileText,
@@ -21,12 +26,14 @@ const POST_TYPES = [
     bg: "bg-rose-100 dark:bg-rose-950/40",   text: "text-rose-700 dark:text-rose-400" },
   { value: "exam_pattern", label: "Exam Pattern", icon: BookOpen,
     bg: "bg-amber-100 dark:bg-amber-950/40", text: "text-amber-700 dark:text-amber-400" },
-  { value: "note",         label: "Note",         icon: StickyNote,
-    bg: "bg-emerald-100 dark:bg-emerald-950/40", text: "text-emerald-700 dark:text-emerald-400" },
+  { value: "subject",      label: "Subject",      icon: Library,
+    bg: "bg-teal-100 dark:bg-teal-950/40",   text: "text-teal-700 dark:text-teal-400" },
+  { value: "timetable",    label: "Timetable",    icon: CalendarDays,
+    bg: "bg-violet-100 dark:bg-violet-950/40", text: "text-violet-700 dark:text-violet-400" },
 ];
 
 function typeConfig(value) {
-  return POST_TYPES.find(p => p.value === value) ?? POST_TYPES[4];
+  return POST_TYPES.find(p => p.value === value) ?? POST_TYPES[0];
 }
 
 /* ── Small reusable components ───────────────────────────────────── */
@@ -58,15 +65,18 @@ export default function GroupDetailPage() {
   const { user }    = useAuth();
 
   const { group, posts, loading, createPost, toggleSave } = useGroupDetail(groupId);
-  const { inviteToGroup, deleteGroup, leaveGroup } = useGroups();
-  const { friends } = usePTP();
+  const { inviteToGroup, deleteGroup, leaveGroup }        = useGroups();
+  const { friends }                                       = usePTP();
+  const { subjects, importSubject }                       = useSubjects();
+  const { timetables, importTimetable }                   = useTimetable();
 
   /* ── Post form ──────────────────────────────────────────────── */
   const [addingPost,  setAddingPost]  = useState(false);
-  const [postType,    setPostType]    = useState("task");
+  const [postType,    setPostType]    = useState("note");
   const [postTitle,   setPostTitle]   = useState("");
   const [postDesc,    setPostDesc]    = useState("");
   const [postDate,    setPostDate]    = useState("");
+  const [postPayload, setPostPayload] = useState(null);
   const [postError,   setPostError]   = useState("");
   const [submitting,  setSubmitting]  = useState(false);
 
@@ -77,24 +87,53 @@ export default function GroupDetailPage() {
   const [inviteError,   setInviteError]   = useState("");
 
   /* ── Save optimistic state ───────────────────────────────────── */
-  const [savedMap, setSavedMap] = useState({}); // postId → bool override
+  const [savedMap, setSavedMap] = useState({});
 
   const isCreator = group?.createdBy === user?.id;
-  const invitableFriends = friends.filter(
-    f => !group?.memberUids?.includes(f.uid)
-  );
+  const invitableFriends = friends.filter(f => !group?.memberUids?.includes(f.uid));
 
   /* ── Handlers ───────────────────────────────────────────────── */
+  function handleTypeChange(value) {
+    setPostType(value);
+    setPostPayload(null);
+    if (value === "subject" || value === "timetable") {
+      setPostTitle("");
+      setPostDesc("");
+    }
+  }
+
+  function handleSubjectSelect(e) {
+    const subj = subjects.find(s => s.id === e.target.value);
+    if (!subj) { setPostTitle(""); setPostDesc(""); setPostPayload(null); return; }
+    const chapters = subj.chapters ?? [];
+    setPostTitle(subj.name);
+    setPostDesc(chapters.length ? chapters.map(c => c.name).join(", ") : "No chapters yet");
+    setPostPayload({ name: subj.name, chapters });
+  }
+
+  function handleTimetableSelect(e) {
+    const tt = timetables.find(t => t.id === e.target.value);
+    if (!tt) { setPostTitle(""); setPostDesc(""); setPostPayload(null); return; }
+    setPostTitle(tt.name);
+    setPostDesc(`${(tt.slots ?? []).length} time slot(s)`);
+    setPostPayload({ name: tt.name, slots: tt.slots ?? [] });
+  }
+
   async function handleCreatePost(e) {
     e.preventDefault();
     if (!postTitle.trim()) return;
+    if ((postType === "subject" || postType === "timetable") && !postPayload) return;
     setPostError(""); setSubmitting(true);
     try {
       await createPost({
-        type: postType, title: postTitle.trim(),
-        description: postDesc.trim(), date: postDate || null,
+        type:        postType,
+        title:       postTitle.trim(),
+        description: postDesc.trim(),
+        date:        postDate || null,
+        payload:     postPayload,
       });
-      setPostTitle(""); setPostDesc(""); setPostDate(""); setAddingPost(false);
+      setPostTitle(""); setPostDesc(""); setPostDate("");
+      setPostPayload(null); setAddingPost(false);
     } catch (err) { setPostError(err.message); }
     setSubmitting(false);
   }
@@ -104,14 +143,19 @@ export default function GroupDetailPage() {
     setSavedMap(m => ({ ...m, [post.id]: !isSaved }));
     await toggleSave(post.id, isSaved);
     if (!isSaved) {
-      // Add to user's own tasks
       try {
-        await tasksService.create(user.id, {
-          title:       post.title,
-          description: `[${group?.name ?? "Group"}] ${post.description}`.trim(),
-          dueDate:     post.date ?? "",
-          priority:    post.type === "exam_date" ? "high" : "medium",
-        });
+        if (post.type === "subject" && post.payload) {
+          await importSubject(post.payload);
+        } else if (post.type === "timetable" && post.payload) {
+          await importTimetable(post.payload);
+        } else {
+          await tasksService.create(user.id, {
+            title:       post.title,
+            description: `[${group?.name ?? "Group"}] ${post.description}`.trim(),
+            dueDate:     post.date ?? "",
+            priority:    post.type === "exam_date" ? "high" : "medium",
+          });
+        }
       } catch { /* non-critical */ }
     }
   }
@@ -154,7 +198,9 @@ export default function GroupDetailPage() {
     </div>
   );
 
-  const showDate = ["task","assignment","exam_date"].includes(postType);
+  const showDate   = ["task", "assignment", "exam_date"].includes(postType);
+  const isSubjType = postType === "subject";
+  const isTTType   = postType === "timetable";
 
   return (
     <div className="mx-auto max-w-md space-y-4">
@@ -208,7 +254,6 @@ export default function GroupDetailPage() {
 
         {membersOpen && (
           <div className="border-t border-border">
-            {/* Member list */}
             <div className="divide-y divide-border">
               {(group.members ?? []).map(m => (
                 <div key={m.uid} className="flex items-center gap-3 px-4 py-2.5">
@@ -223,7 +268,6 @@ export default function GroupDetailPage() {
               ))}
             </div>
 
-            {/* Invite friend section */}
             <div className="border-t border-border p-3 space-y-2">
               <button
                 onClick={() => { setInviting(v => !v); setInviteError(""); }}
@@ -281,10 +325,7 @@ export default function GroupDetailPage() {
 
       {/* ── Add post form ─────────────────────────────────────────── */}
       {addingPost && (
-        <form
-          onSubmit={handleCreatePost}
-          className="space-y-3 rounded-xl border border-border bg-card p-4"
-        >
+        <form onSubmit={handleCreatePost} className="space-y-3 rounded-xl border border-border bg-card p-4">
           {/* Type pills */}
           <div className="flex flex-wrap gap-1.5">
             {POST_TYPES.map(t => {
@@ -293,7 +334,7 @@ export default function GroupDetailPage() {
                 <button
                   key={t.value}
                   type="button"
-                  onClick={() => setPostType(t.value)}
+                  onClick={() => handleTypeChange(t.value)}
                   className={cn(
                     "rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors",
                     isActive ? `${t.bg} ${t.text}` : "bg-muted text-muted-foreground hover:bg-accent"
@@ -305,21 +346,71 @@ export default function GroupDetailPage() {
             })}
           </div>
 
-          <input
-            autoFocus
-            value={postTitle}
-            onChange={e => setPostTitle(e.target.value)}
-            placeholder="Title…"
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-          />
+          {/* Subject picker */}
+          {isSubjType && (
+            <div>
+              <label className="mb-1 block text-xs text-muted-foreground">Pick a subject to share</label>
+              <select
+                onChange={handleSubjectSelect}
+                defaultValue=""
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              >
+                <option value="" disabled>Select subject…</option>
+                {subjects.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}{(s.chapters ?? []).length > 0 ? ` (${s.chapters.length} chapters)` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
-          <textarea
-            value={postDesc}
-            onChange={e => setPostDesc(e.target.value)}
-            placeholder="Details, topics to cover, notes…"
-            rows={3}
-            className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-          />
+          {/* Timetable picker */}
+          {isTTType && (
+            <div>
+              <label className="mb-1 block text-xs text-muted-foreground">Pick a timetable to share</label>
+              <select
+                onChange={handleTimetableSelect}
+                defaultValue=""
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              >
+                <option value="" disabled>Select timetable…</option>
+                {timetables.map(t => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}{(t.slots ?? []).length > 0 ? ` (${t.slots.length} slots)` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Selected preview */}
+          {(isSubjType || isTTType) && postTitle && (
+            <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">{postTitle}</span>
+              {postDesc && <span className="ml-1">— {postDesc}</span>}
+            </div>
+          )}
+
+          {/* Manual title + desc */}
+          {!isSubjType && !isTTType && (
+            <>
+              <input
+                autoFocus
+                value={postTitle}
+                onChange={e => setPostTitle(e.target.value)}
+                placeholder="Title…"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+              <textarea
+                value={postDesc}
+                onChange={e => setPostDesc(e.target.value)}
+                placeholder="Details, topics to cover, notes…"
+                rows={3}
+                className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </>
+          )}
 
           {showDate && (
             <div>
@@ -337,7 +428,7 @@ export default function GroupDetailPage() {
 
           <button
             type="submit"
-            disabled={submitting || !postTitle.trim()}
+            disabled={submitting || !postTitle.trim() || ((isSubjType || isTTType) && !postPayload)}
             className="w-full rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
           >
             {submitting ? "Sharing…" : "Share"}
@@ -350,16 +441,15 @@ export default function GroupDetailPage() {
         <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card py-14">
           <StickyNote size={34} className="text-muted-foreground/30" />
           <p className="text-sm font-medium text-muted-foreground">Nothing shared yet</p>
-          <p className="text-xs text-muted-foreground">Be the first to share a task, exam tip, or note</p>
+          <p className="text-xs text-muted-foreground">Be the first to share a task, subject, or note</p>
         </div>
       ) : (
         <div className="space-y-3">
           {posts.map(post => {
-            const isSaved = savedMap[post.id] ?? post.savedBy?.includes(user?.id);
-            const t = typeConfig(post.type);
+            const isSaved    = savedMap[post.id] ?? post.savedBy?.includes(user?.id);
+            const isDataType = post.type === "subject" || post.type === "timetable";
             return (
-              <div key={post.id} className={`rounded-xl border border-border bg-card p-4 space-y-2.5`}>
-                {/* Top row: type badge + save button */}
+              <div key={post.id} className="rounded-xl border border-border bg-card p-4 space-y-2.5">
                 <div className="flex items-start justify-between gap-2">
                   <div className="space-y-1.5 flex-1 min-w-0">
                     <PostTypeBadge type={post.type} />
@@ -369,22 +459,25 @@ export default function GroupDetailPage() {
                     onClick={() => handleSaveToApp(post)}
                     className={cn(
                       "shrink-0 rounded-lg p-1.5 transition-colors",
-                      isSaved
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:bg-accent"
+                      isSaved ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent"
                     )}
-                    title={isSaved ? "Saved to my tasks" : "Save to my tasks"}
+                    title={
+                      isSaved
+                        ? (isDataType ? "Already imported" : "Saved to my tasks")
+                        : (isDataType ? "Import to my app" : "Save to my tasks")
+                    }
                   >
-                    {isSaved ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}
+                    {isSaved
+                      ? <BookmarkCheck size={16} />
+                      : isDataType ? <Download size={16} /> : <Bookmark size={16} />
+                    }
                   </button>
                 </div>
 
-                {/* Description */}
                 {post.description && (
                   <p className="text-xs leading-relaxed text-muted-foreground">{post.description}</p>
                 )}
 
-                {/* Footer: author + date */}
                 <div className="flex items-center justify-between pt-0.5">
                   <div className="flex items-center gap-1.5">
                     <Avatar name={post.authorName} size="xs" />
@@ -399,7 +492,9 @@ export default function GroupDetailPage() {
                       </span>
                     )}
                     {isSaved && (
-                      <span className="text-[10px] font-semibold text-primary">Saved ✓</span>
+                      <span className="text-[10px] font-semibold text-primary">
+                        {isDataType ? "Imported ✓" : "Saved ✓"}
+                      </span>
                     )}
                   </div>
                 </div>

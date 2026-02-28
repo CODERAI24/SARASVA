@@ -24,9 +24,10 @@ export function enrichExam(exam) {
 }
 
 export const examsService = {
-  async create(uid, { name }) {
+  async create(uid, { name, examDate }) {
     const ref = await addDoc(userCol(uid, "exams"), {
       name,
+      examDate:  examDate ?? null,
       archived:  false,
       subjects:  [],
       createdAt: new Date().toISOString(),

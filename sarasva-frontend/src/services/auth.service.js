@@ -14,6 +14,9 @@ import {
   linkWithCredential,
   EmailAuthProvider,
   sendPasswordResetEmail,
+  reauthenticateWithCredential,
+  updateEmail,
+  updatePassword,
 } from "firebase/auth";
 import { doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
 import { auth, db } from "@/firebase/config.js";
@@ -45,13 +48,16 @@ function profileRef(uid) {
 function buildUser(firebaseUser, profile = {}) {
   return {
     id:                 firebaseUser.uid,
-    name:               profile.name      ?? firebaseUser.displayName ?? "",
+    name:               profile.name        ?? firebaseUser.displayName ?? "",
     email:              firebaseUser.email,
-    course:             profile.course    ?? "",
-    semester:           profile.semester  ?? "",
-    institute:          profile.institute ?? "",
-    settings:           profile.settings  ?? DEFAULT_SETTINGS,
+    course:             profile.course      ?? "",
+    semester:           profile.semester    ?? "",
+    institute:          profile.institute   ?? "",
+    settings:           profile.settings    ?? DEFAULT_SETTINGS,
     notificationsEmail: profile.notificationsEmail ?? false,
+    avatarColor:        profile.avatarColor ?? "#6366f1",
+    avatarEmoji:        profile.avatarEmoji ?? null,
+    role:               profile.role        ?? "user", // "admin" for admin users
   };
 }
 
@@ -191,5 +197,35 @@ export const authService = {
     const firebaseUser = auth.currentUser;
     if (!firebaseUser) throw new Error("Not logged in.");
     await updateDoc(profileRef(firebaseUser.uid), { notificationsEmail });
+  },
+
+  /** Change email — requires current password for reauthentication. */
+  async changeEmail(currentPassword, newEmail) {
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) throw new Error("Not logged in.");
+    if (!firebaseUser.email) throw new Error("No email on account.");
+    const cred = EmailAuthProvider.credential(firebaseUser.email, currentPassword);
+    await reauthenticateWithCredential(firebaseUser, cred);
+    await updateEmail(firebaseUser, newEmail);
+  },
+
+  /** Change password — requires current password for reauthentication. */
+  async changePassword(currentPassword, newPassword) {
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) throw new Error("Not logged in.");
+    if (!firebaseUser.email) throw new Error("No email on account.");
+    const cred = EmailAuthProvider.credential(firebaseUser.email, currentPassword);
+    await reauthenticateWithCredential(firebaseUser, cred);
+    await updatePassword(firebaseUser, newPassword);
+  },
+
+  /** Save avatar appearance: color hex string and optional emoji. */
+  async updateAvatar({ avatarColor, avatarEmoji }) {
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) throw new Error("Not logged in.");
+    const patch = {};
+    if (avatarColor !== undefined) patch.avatarColor = avatarColor;
+    if (avatarEmoji  !== undefined) patch.avatarEmoji  = avatarEmoji;
+    await updateDoc(profileRef(firebaseUser.uid), patch);
   },
 };

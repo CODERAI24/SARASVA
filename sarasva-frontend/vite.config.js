@@ -9,17 +9,27 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.ico", "icon.svg", "apple-touch-icon-180x180.png"],
+      includeAssets: ["favicon.ico", "icon.svg", "logo.png", "apple-touch-icon-180x180.png"],
       manifest: {
         name: "Sarasva",
         short_name: "Sarasva",
         description: "Academic tracker — attendance, exams, timetable & tasks",
-        theme_color: "#6366f1",
+        theme_color: "#0ea5e9",
         background_color: "#09090b",
         display: "standalone",
         start_url: "/SARASVA/",
         scope: "/SARASVA/",
         icons: [
+          {
+            src: "logo.png",
+            sizes: "192x192",
+            type: "image/png",
+          },
+          {
+            src: "logo.png",
+            sizes: "512x512",
+            type: "image/png",
+          },
           {
             src: "pwa-64x64.png",
             sizes: "64x64",
