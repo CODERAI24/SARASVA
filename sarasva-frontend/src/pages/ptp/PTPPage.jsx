@@ -8,6 +8,21 @@ import { usePTP } from "@/hooks/usePTP.js";
 import { useGroups } from "@/hooks/useGroups.js";
 import { cn } from "@/lib/utils.js";
 
+/* ── Institute abbreviation (e.g. "NIT Calicut" → "NITC") ────────── */
+function abbrev(str) {
+  if (!str) return "";
+  return str.trim().split(/\s+/).map(w => w[0]).join("").toUpperCase().slice(0, 6);
+}
+
+/* ── One-line bio: "B.Tech · NITC" ──────────────────────────────── */
+function Bio({ course, institute }) {
+  const parts = [course, abbrev(institute)].filter(Boolean);
+  if (!parts.length) return null;
+  return (
+    <p className="truncate text-xs text-muted-foreground">{parts.join(" · ")}</p>
+  );
+}
+
 /* ── Avatar initials ─────────────────────────────────────────────── */
 function Avatar({ name, size = "md" }) {
   const initials = (name ?? "?")
@@ -148,9 +163,7 @@ export default function PTPPage() {
                   <Avatar name={person.name} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{person.name}</p>
-                    {person.course && (
-                      <p className="truncate text-xs text-muted-foreground">{person.course}</p>
-                    )}
+                    <Bio course={person.course} institute={person.institute} />
                   </div>
                   {isAlreadyFriend(person.uid) ? (
                     <div className="flex items-center gap-1 text-xs font-medium text-emerald-600">
@@ -218,7 +231,7 @@ export default function PTPPage() {
                   <Avatar name={f.name} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{f.name}</p>
-                    <p className="text-xs text-muted-foreground">Study peer</p>
+                    <Bio course={f.course} institute={f.institute} />
                   </div>
                   <button
                     onClick={() => removeFriend(f.uid)}
@@ -249,7 +262,7 @@ export default function PTPPage() {
                     <Avatar name={req.fromName} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{req.fromName}</p>
-                      <p className="text-xs text-muted-foreground">wants to study together</p>
+                      <Bio course={req.fromCourse} institute={req.fromInstitute} />
                     </div>
                     <div className="flex gap-2">
                       <button onClick={() => acceptRequest(req)}

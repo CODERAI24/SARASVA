@@ -57,15 +57,21 @@ export const groupsService = {
       status:    "pending",
       createdAt: new Date().toISOString(),
     });
+    // Track pending invitees on the group doc so Firestore rules can allow them to accept
+    await updateDoc(groupRef(groupId), {
+      pendingInviteUids: arrayUnion(toUid),
+    });
   },
 
   /** Accept a group invite — adds user to group and updates their list. */
   async acceptGroupInvite(inviteId, groupId, uid, memberName) {
-    const snap     = await getDoc(groupRef(groupId));
+    const snap      = await getDoc(groupRef(groupId));
     const groupName = snap.data()?.name ?? "";
+    // Move uid from pendingInviteUids → memberUids (rule allows update because uid is in pendingInviteUids)
     await updateDoc(groupRef(groupId), {
-      memberUids: arrayUnion(uid),
-      members:    arrayUnion({ uid, name: memberName, joinedAt: new Date().toISOString() }),
+      memberUids:        arrayUnion(uid),
+      members:           arrayUnion({ uid, name: memberName, joinedAt: new Date().toISOString() }),
+      pendingInviteUids: arrayRemove(uid),
     });
     await setDoc(userDoc(uid, "groups", groupId), {
       groupId, name: groupName, joinedAt: new Date().toISOString(),

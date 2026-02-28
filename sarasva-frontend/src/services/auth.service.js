@@ -45,11 +45,12 @@ function profileRef(uid) {
 function buildUser(firebaseUser, profile = {}) {
   return {
     id:                 firebaseUser.uid,
-    name:               profile.name     ?? firebaseUser.displayName ?? "",
+    name:               profile.name      ?? firebaseUser.displayName ?? "",
     email:              firebaseUser.email,
-    course:             profile.course   ?? "",
-    semester:           profile.semester ?? "",
-    settings:           profile.settings ?? DEFAULT_SETTINGS,
+    course:             profile.course    ?? "",
+    semester:           profile.semester  ?? "",
+    institute:          profile.institute ?? "",
+    settings:           profile.settings  ?? DEFAULT_SETTINGS,
     notificationsEmail: profile.notificationsEmail ?? false,
   };
 }
@@ -62,9 +63,9 @@ export const authService = {
     await updateProfile(cred.user, { displayName: name });
 
     // Store extended profile in Firestore
-    const profile = { name, course, semester, settings: DEFAULT_SETTINGS };
+    const profile = { name, course, semester, institute: "", settings: DEFAULT_SETTINGS };
     await setDoc(profileRef(cred.user.uid), profile);
-    await upsertPublicProfile(cred.user.uid, { name, course });
+    await upsertPublicProfile(cred.user.uid, { name, course, institute: "" });
 
     return buildUser(cred.user, profile);
   },
@@ -82,14 +83,15 @@ export const authService = {
         settings: DEFAULT_SETTINGS,
       };
       await setDoc(profileRef(cred.user.uid), profile);
-      await upsertPublicProfile(cred.user.uid, { name: profile.name, course: "" });
+      await upsertPublicProfile(cred.user.uid, { name: profile.name, course: "", institute: "" });
       return buildUser(cred.user, profile);
     }
     // Backfill publicProfile for returning Google users who existed before PTP
     const existingProfile = snap.data();
     upsertPublicProfile(cred.user.uid, {
-      name:   existingProfile.name   ?? cred.user.displayName ?? "",
-      course: existingProfile.course ?? "",
+      name:      existingProfile.name      ?? cred.user.displayName ?? "",
+      course:    existingProfile.course    ?? "",
+      institute: existingProfile.institute ?? "",
     }).catch(() => {}); // non-blocking, best-effort
     return buildUser(cred.user, existingProfile);
   },
@@ -101,8 +103,9 @@ export const authService = {
       const profile = snap.exists() ? snap.data() : {};
       // Backfill publicProfile for users who registered before PTP feature
       upsertPublicProfile(cred.user.uid, {
-        name:   profile.name   ?? cred.user.displayName ?? "",
-        course: profile.course ?? "",
+        name:      profile.name      ?? cred.user.displayName ?? "",
+        course:    profile.course    ?? "",
+        institute: profile.institute ?? "",
       }).catch(() => {}); // non-blocking, best-effort
       return buildUser(cred.user, profile);
     } catch (err) {
@@ -142,8 +145,9 @@ export const authService = {
     const profile = snap.exists() ? snap.data() : {};
     // Backfill / refresh public profile on every app startup so nameLower is always present
     upsertPublicProfile(firebaseUser.uid, {
-      name:   profile.name   ?? firebaseUser.displayName ?? "",
-      course: profile.course ?? "",
+      name:      profile.name      ?? firebaseUser.displayName ?? "",
+      course:    profile.course    ?? "",
+      institute: profile.institute ?? "",
     }).catch(() => {}); // non-blocking
     return buildUser(firebaseUser, profile);
   },
@@ -156,12 +160,12 @@ export const authService = {
     await sendPasswordResetEmail(auth, email);
   },
 
-  async updateProfile({ name, course, semester }) {
+  async updateProfile({ name, course, semester, institute }) {
     const firebaseUser = auth.currentUser;
     if (!firebaseUser) throw new Error("Not logged in.");
     await updateProfile(firebaseUser, { displayName: name });
-    await updateDoc(profileRef(firebaseUser.uid), { name, course, semester });
-    await upsertPublicProfile(firebaseUser.uid, { name, course });
+    await updateDoc(profileRef(firebaseUser.uid), { name, course, semester, institute: institute ?? "" });
+    await upsertPublicProfile(firebaseUser.uid, { name, course, institute: institute ?? "" });
     const snap = await getDoc(profileRef(firebaseUser.uid));
     return buildUser(firebaseUser, snap.data());
   },

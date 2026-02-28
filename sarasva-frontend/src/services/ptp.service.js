@@ -24,11 +24,11 @@ function friendRequestRef(id) {
 
 export const ptpService = {
   /** Write/update public profile — called during register, login, and updateProfile */
-  async upsertPublicProfile(uid, { name, course }) {
+  async upsertPublicProfile(uid, { name, course, institute }) {
     const n = name ?? "";
     await setDoc(
       publicProfileRef(uid),
-      { name: n, nameLower: n.toLowerCase(), course: course ?? "", uid },
+      { name: n, nameLower: n.toLowerCase(), course: course ?? "", institute: institute ?? "", uid },
       { merge: true }
     );
   },
@@ -45,8 +45,8 @@ export const ptpService = {
       .filter(u => (u.name ?? "").toLowerCase().includes(lower));
   },
 
-  /** Send a friend request */
-  async sendRequest(fromUid, fromName, toUid, toName) {
+  /** Send a friend request — includes sender's course+institute so recipient card can show it */
+  async sendRequest(fromUid, fromName, fromCourse, fromInstitute, toUid, toName) {
     // Avoid duplicate pending requests
     const existingQ = query(
       friendRequestsCol(),
@@ -62,19 +62,24 @@ export const ptpService = {
     if (friendSnap.exists()) throw new Error("Already friends.");
 
     await addDoc(friendRequestsCol(), {
-      fromUid, fromName, toUid, toName,
+      fromUid, fromName, fromCourse: fromCourse ?? "", fromInstitute: fromInstitute ?? "",
+      toUid, toName,
       status: "pending",
       createdAt: new Date().toISOString(),
     });
   },
 
-  /** Accept an incoming friend request — adds to both users' friends collections */
-  async acceptRequest(requestId, fromUid, fromName, toUid, toName) {
+  /**
+   * Accept an incoming friend request.
+   * Only writes to the ACCEPTER's own friends collection (Firestore rules block
+   * writing to the sender's collection). The sender's side is handled automatically
+   * by the accepted-requests listener in usePTP.js.
+   */
+  async acceptRequest(requestId, fromUid, fromName, fromCourse, fromInstitute, toUid, toName) {
     await setDoc(userDoc(toUid, "friends", fromUid), {
-      uid: fromUid, name: fromName, addedAt: new Date().toISOString(),
-    });
-    await setDoc(userDoc(fromUid, "friends", toUid), {
-      uid: toUid, name: toName, addedAt: new Date().toISOString(),
+      uid: fromUid, name: fromName,
+      course: fromCourse ?? "", institute: fromInstitute ?? "",
+      addedAt: new Date().toISOString(),
     });
     await updateDoc(friendRequestRef(requestId), { status: "accepted" });
   },
@@ -84,9 +89,13 @@ export const ptpService = {
     await updateDoc(friendRequestRef(requestId), { status: "rejected" });
   },
 
-  /** Remove a friend (bidirectional) */
+  /**
+   * Remove a friend from the caller's own friends collection.
+   * Firestore rules prevent writing to another user's collection, so only
+   * the caller's side is removed. The other person retains the caller in
+   * their list until they also remove.
+   */
   async removeFriend(myUid, friendUid) {
     await deleteDoc(userDoc(myUid, "friends", friendUid));
-    await deleteDoc(userDoc(friendUid, "friends", myUid));
   },
 };

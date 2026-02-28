@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth.js";
 import { authService } from "@/services/auth.service.js";
 import { notificationsService } from "@/services/notifications.service.js";
 import { auth } from "@/firebase/config.js";
-import { User, Mail, BookOpen, Hash, Settings2, Check, KeyRound, BellRing, BellOff } from "lucide-react";
+import { User, Mail, BookOpen, Hash, Settings2, Check, KeyRound, BellRing, BellOff, Building2 } from "lucide-react";
 
 const SETTINGS_LIST = [
   {
@@ -38,9 +38,10 @@ export default function ProfilePage() {
 
   /* ── Profile form ────────────────────────────────────────────────── */
   const [profile, setProfile] = useState({
-    name:     user?.name     ?? "",
-    course:   user?.course   ?? "",
-    semester: user?.semester ?? "",
+    name:      user?.name      ?? "",
+    course:    user?.course    ?? "",
+    semester:  user?.semester  ?? "",
+    institute: user?.institute ?? "",
   });
   const [profileSaving,  setProfileSaving]  = useState(false);
   const [profileSuccess, setProfileSuccess] = useState(false);
@@ -56,8 +57,9 @@ export default function ProfilePage() {
     try {
       await authService.updateProfile({
         name,
-        course:   profile.course.trim(),
-        semester: profile.semester.trim(),
+        course:    profile.course.trim(),
+        semester:  profile.semester.trim(),
+        institute: profile.institute.trim(),
       });
       await refreshUser();
       setProfileSuccess(true);
@@ -295,6 +297,21 @@ export default function ProfilePage() {
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:ring-offset-2 ring-offset-background"
               />
             </div>
+          </div>
+
+          {/* Institute */}
+          <div className="space-y-1.5">
+            <label htmlFor="institute" className="flex items-center gap-1.5 text-sm font-medium">
+              <Building2 size={13} className="text-muted-foreground" />
+              Institute / College
+            </label>
+            <input
+              id="institute"
+              value={profile.institute}
+              onChange={(e) => setProfile((p) => ({ ...p, institute: e.target.value }))}
+              placeholder="e.g. National Institute of Technology"
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:ring-offset-2 ring-offset-background"
+            />
           </div>
 
           <div className="flex items-center gap-3">

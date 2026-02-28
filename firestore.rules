@@ -46,7 +46,8 @@ service cloud.firestore {
       allow create: if request.auth != null
                     && request.auth.uid in request.resource.data.memberUids;
       allow update: if request.auth != null
-                    && request.auth.uid in resource.data.memberUids;
+                    && (request.auth.uid in resource.data.memberUids
+                     || request.auth.uid in resource.data.pendingInviteUids);
       allow delete: if request.auth != null
                     && request.auth.uid == resource.data.createdBy;
 

@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
-import { onSnapshot, query, where, collection } from "firebase/firestore";
-import { db, userCol } from "@/firebase/config.js";
+import {
+  onSnapshot, query, where, collection, getDoc, setDoc,
+} from "firebase/firestore";
+import { db, userCol, userDoc } from "@/firebase/config.js";
 import { useAuth } from "@/context/AuthContext.jsx";
 import { ptpService } from "@/services/ptp.service.js";
 
@@ -42,7 +44,7 @@ export function usePTP() {
     });
   }, [user]);
 
-  // Real-time outgoing requests listener
+  // Real-time outgoing requests listener (pending)
   useEffect(() => {
     if (!user) return;
     const q = query(
@@ -52,6 +54,36 @@ export function usePTP() {
     );
     return onSnapshot(q, (snap) => {
       setOutgoingRequests(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+  }, [user]);
+
+  /**
+   * When an outgoing request is accepted by the other person, they only write
+   * to their own friends collection (Firestore rules block them writing to ours).
+   * This listener detects accepted requests and self-writes the friend to our
+   * own collection so the friendship becomes bidirectional.
+   */
+  useEffect(() => {
+    if (!user) return;
+    const q = query(
+      collection(db, "friendRequests"),
+      where("fromUid", "==", user.id),
+      where("status", "==", "accepted")
+    );
+    return onSnapshot(q, async (snap) => {
+      for (const d of snap.docs) {
+        const req = d.data();
+        const existing = await getDoc(userDoc(user.id, "friends", req.toUid));
+        if (!existing.exists()) {
+          await setDoc(userDoc(user.id, "friends", req.toUid), {
+            uid:       req.toUid,
+            name:      req.toName,
+            course:    "",
+            institute: "",
+            addedAt:   new Date().toISOString(),
+          });
+        }
+      }
     });
   }, [user]);
 
@@ -74,7 +106,10 @@ export function usePTP() {
   const sendRequest = useCallback(async (toUser) => {
     if (!user) return;
     try {
-      await ptpService.sendRequest(user.id, user.name, toUser.uid, toUser.name);
+      await ptpService.sendRequest(
+        user.id, user.name, user.course ?? "", user.institute ?? "",
+        toUser.uid, toUser.name
+      );
     } catch (err) {
       setError(err.message);
       throw err;
@@ -85,7 +120,10 @@ export function usePTP() {
     if (!user) return;
     try {
       await ptpService.acceptRequest(
-        request.id, request.fromUid, request.fromName, user.id, user.name
+        request.id,
+        request.fromUid, request.fromName,
+        request.fromCourse ?? "", request.fromInstitute ?? "",
+        user.id, user.name
       );
     } catch (err) {
       setError(err.message);
