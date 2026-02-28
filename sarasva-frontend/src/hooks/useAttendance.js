@@ -193,7 +193,7 @@ export function useAttendanceLog({ subjectId, from, to } = {}) {
       if (subjectId) list = list.filter((r) => r.subjectId === subjectId);
       if (from)      list = list.filter((r) => r.date >= from);
       if (to)        list = list.filter((r) => r.date <= to);
-      list.sort((a, b) => b.date.localeCompare(a.date));
+      list.sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
       setRecords(list);
       setLoading(false);
     });

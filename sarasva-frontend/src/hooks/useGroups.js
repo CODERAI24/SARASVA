@@ -34,12 +34,19 @@ export function useGroups() {
     if (!user) return;
     const q = query(
       collection(db, "groupInvites"),
-      where("toUid",  "==", user.id),
-      where("status", "==", "pending")
+      where("toUid",  "==", user.id)
     );
-    return onSnapshot(q, (snap) => {
-      setGroupInvites(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
+    return onSnapshot(
+      q,
+      (snap) => {
+        setGroupInvites(
+          snap.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .filter((inv) => inv.status === "pending")
+        );
+      },
+      () => setGroupInvites([])
+    );
   }, [user]);
 
   const createGroup = useCallback(async (groupName) => {

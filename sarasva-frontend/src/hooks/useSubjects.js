@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { query, where, onSnapshot, addDoc, updateDoc } from "firebase/firestore";
+import { onSnapshot, addDoc, updateDoc } from "firebase/firestore";
 import { userCol, userDoc } from "@/firebase/config.js";
 import { useAuth } from "@/context/AuthContext.jsx";
 
@@ -15,13 +15,13 @@ export function useSubjects({ archived = false } = {}) {
 
   useEffect(() => {
     if (!user) return;
-    const q = query(userCol(user.id, "subjects"), where("archived", "==", archived));
     const unsub = onSnapshot(
-      q,
+      userCol(user.id, "subjects"),
       (snap) => {
         const list = snap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+          .filter((s) => archived ? s.archived === true : s.archived !== true)
+          .sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""));
         setSubjects(list);
         setLoading(false);
       },

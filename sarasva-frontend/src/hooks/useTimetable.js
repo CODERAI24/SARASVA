@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { query, where, onSnapshot, addDoc, updateDoc, writeBatch } from "firebase/firestore";
+import { onSnapshot, addDoc, updateDoc, writeBatch } from "firebase/firestore";
 import { db, userCol, userDoc } from "@/firebase/config.js";
 import { useAuth } from "@/context/AuthContext.jsx";
 
@@ -16,13 +16,13 @@ export function useTimetable() {
 
   useEffect(() => {
     if (!user) return;
-    const q = query(userCol(user.id, "timetables"), where("archived", "==", false));
     const unsub = onSnapshot(
-      q,
+      userCol(user.id, "timetables"),
       (snap) => {
         const list = snap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+          .filter((tt) => tt.archived !== true)
+          .sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""));
         setTimetables(list);
         setLoading(false);
       },
@@ -64,7 +64,7 @@ export function useTimetable() {
         const activeOnes = timetables.filter((t) => t.active);
         if (activeOnes.length >= 2) {
           const oldest = [...activeOnes].sort((a, b) =>
-            (a.activatedAt ?? a.createdAt).localeCompare(b.activatedAt ?? b.createdAt)
+            (a.activatedAt ?? a.createdAt ?? "").localeCompare(b.activatedAt ?? b.createdAt ?? "")
           )[0];
           batch.update(userDoc(user.id, "timetables", oldest.id), { active: false });
         }

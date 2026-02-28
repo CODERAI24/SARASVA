@@ -36,12 +36,19 @@ export function usePTP() {
     if (!user) return;
     const q = query(
       collection(db, "friendRequests"),
-      where("toUid", "==", user.id),
-      where("status", "==", "pending")
+      where("toUid", "==", user.id)
     );
-    return onSnapshot(q, (snap) => {
-      setIncomingRequests(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
+    return onSnapshot(
+      q,
+      (snap) => {
+        setIncomingRequests(
+          snap.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .filter((req) => req.status === "pending")
+        );
+      },
+      (err) => setError(err.message)
+    );
   }, [user]);
 
   // Real-time outgoing requests listener (pending)
@@ -49,12 +56,19 @@ export function usePTP() {
     if (!user) return;
     const q = query(
       collection(db, "friendRequests"),
-      where("fromUid", "==", user.id),
-      where("status", "==", "pending")
+      where("fromUid", "==", user.id)
     );
-    return onSnapshot(q, (snap) => {
-      setOutgoingRequests(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
+    return onSnapshot(
+      q,
+      (snap) => {
+        setOutgoingRequests(
+          snap.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .filter((req) => req.status === "pending")
+        );
+      },
+      (err) => setError(err.message)
+    );
   }, [user]);
 
   /**
@@ -67,11 +81,10 @@ export function usePTP() {
     if (!user) return;
     const q = query(
       collection(db, "friendRequests"),
-      where("fromUid", "==", user.id),
-      where("status", "==", "accepted")
+      where("fromUid", "==", user.id)
     );
     return onSnapshot(q, async (snap) => {
-      for (const d of snap.docs) {
+      for (const d of snap.docs.filter((docSnap) => docSnap.data().status === "accepted")) {
         const req = d.data();
         const existing = await getDoc(userDoc(user.id, "friends", req.toUid));
         if (!existing.exists()) {

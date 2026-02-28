@@ -46,10 +46,12 @@ export const groupsService = {
     }
     const dup = await getDocs(query(
       groupInvites(),
-      where("groupId", "==", groupId),
-      where("toUid",   "==", toUid)
+      where("groupId", "==", groupId)
     ));
-    if (dup.docs.some((d) => d.data().status === "pending")) throw new Error("Invite already sent.");
+    if (dup.docs.some((d) => {
+      const data = d.data();
+      return data.toUid === toUid && data.status === "pending";
+    })) throw new Error("Invite already sent.");
 
     await addDoc(groupInvites(), {
       groupId, groupName, fromUid, fromName, toUid, toName,

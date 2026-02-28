@@ -23,7 +23,7 @@ export function useHabits() {
       setHabits(
         snap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+          .sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""))
       );
       setLoading(false);
     });

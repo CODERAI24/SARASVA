@@ -50,12 +50,14 @@ export const ptpService = {
     // Avoid duplicate pending requests
     const existingQ = query(
       friendRequestsCol(),
-      where("fromUid", "==", fromUid),
-      where("toUid", "==", toUid),
-      where("status", "==", "pending")
+      where("fromUid", "==", fromUid)
     );
     const existing = await getDocs(existingQ);
-    if (!existing.empty) throw new Error("Friend request already sent.");
+    const hasDuplicate = existing.docs.some((d) => {
+      const data = d.data();
+      return data.toUid === toUid && data.status === "pending";
+    });
+    if (hasDuplicate) throw new Error("Friend request already sent.");
 
     // Check already friends
     const friendSnap = await getDoc(userDoc(fromUid, "friends", toUid));

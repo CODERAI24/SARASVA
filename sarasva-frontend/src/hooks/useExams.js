@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { query, where, onSnapshot, updateDoc } from "firebase/firestore";
+import { onSnapshot, updateDoc } from "firebase/firestore";
 import { userCol, userDoc } from "@/firebase/config.js";
 import { useAuth } from "@/context/AuthContext.jsx";
 import { examsService, enrichExam } from "@/services/exams.service.js";
@@ -17,13 +17,13 @@ export function useExams() {
 
   useEffect(() => {
     if (!user) return;
-    const q = query(userCol(user.id, "exams"), where("archived", "==", false));
     return onSnapshot(
-      q,
+      userCol(user.id, "exams"),
       (snap) => {
         const list = snap.docs
           .map((d) => enrichExam({ id: d.id, ...d.data() }))
-          .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+          .filter((e) => e.archived !== true)
+          .sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""));
         setExams(list);
         setLoading(false);
       },

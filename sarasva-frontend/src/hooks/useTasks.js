@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { query, where, onSnapshot } from "firebase/firestore";
+import { onSnapshot } from "firebase/firestore";
 import { userCol } from "@/firebase/config.js";
 import { useAuth } from "@/context/AuthContext.jsx";
 import { tasksService } from "@/services/tasks.service.js";
@@ -15,13 +15,13 @@ export function useTasks({ archived = false } = {}) {
 
   useEffect(() => {
     if (!user) return;
-    const q = query(userCol(user.id, "tasks"), where("archived", "==", archived));
     const unsub = onSnapshot(
-      q,
+      userCol(user.id, "tasks"),
       (snap) => {
         const list = snap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+          .filter((t) => archived ? t.archived === true : t.archived !== true)
+          .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
         setTasks(list);
         setLoading(false);
       },
