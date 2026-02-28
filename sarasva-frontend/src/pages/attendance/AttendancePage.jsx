@@ -66,7 +66,7 @@ function MarkButtons({ subjectId, marking, onMark, disabled }) {
           key={key}
           disabled={marking === subjectId || disabled}
           onClick={() => onMark(subjectId, key)}
-          className={cn("rounded-md px-3 py-1.5 text-xs font-semibold disabled:opacity-50", cls)}
+          className={cn("rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-150 active:scale-95 disabled:opacity-50", cls)}
         >
           {label}
         </button>
@@ -154,9 +154,12 @@ function MarkToday({ date, day, today, marking, onMark }) {
 
 /* ── Monthly Calendar ─────────────────────────────────────────────── */
 
-/** Returns YYYY-MM-DD for a Date object */
+/** Returns YYYY-MM-DD for a Date object using LOCAL time (avoids UTC shift for IST users). */
 function dateStr(d) {
-  return d.toISOString().split("T")[0];
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 /** Dominant status color for a day's records */
@@ -272,8 +275,8 @@ function AttendanceCalendar({ allRecords, timetables, subjects, onRetroMark }) {
               disabled={isFuture}
               onClick={() => setSelected(isSel ? null : ds)}
               className={cn(
-                "aspect-square flex flex-col items-center justify-center gap-0.5 text-xs transition-colors border border-transparent",
-                isFuture ? "opacity-30 cursor-default" : "cursor-pointer hover:bg-accent",
+                "aspect-square flex flex-col items-center justify-center gap-0.5 text-xs transition-all duration-150 border border-transparent",
+                isFuture ? "opacity-30 cursor-default" : "cursor-pointer hover:bg-accent active:scale-95",
                 isSel && "ring-2 ring-primary ring-inset",
                 isToday && !isSel && "font-bold text-primary",
                 col && !isSel && DAY_BG[col],
