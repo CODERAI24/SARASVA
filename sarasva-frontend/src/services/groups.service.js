@@ -8,8 +8,8 @@
  *   users/{uid}/groups/{groupId}            — denormalized list per user
  */
 import {
-  doc, setDoc, getDoc, getDocs, addDoc, updateDoc,
-  collection, query, where, arrayUnion, arrayRemove,
+  doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
+  collection, query, where, arrayUnion, arrayRemove, writeBatch,
 } from "firebase/firestore";
 import { db, userCol, userDoc } from "@/firebase/config.js";
 
@@ -82,6 +82,46 @@ export const groupsService = {
   /** Reject a group invite. */
   async rejectGroupInvite(inviteId) {
     await updateDoc(inviteRef(inviteId), { status: "rejected" });
+  },
+
+  /**
+   * Delete a group (creator only).
+   * Removes the group doc and all members' denormalized entries.
+   * Posts subcollection is orphaned (harmless).
+   */
+  async deleteGroup(groupId, uid) {
+    const snap = await getDoc(groupRef(groupId));
+    const data = snap.data();
+    if (!data) throw new Error("Group not found.");
+    if (data.createdBy !== uid) throw new Error("Only the group creator can delete this group.");
+
+    const batch = writeBatch(db);
+    (data.memberUids ?? []).forEach((memberUid) => {
+      batch.delete(userDoc(memberUid, "groups", groupId));
+    });
+    batch.delete(groupRef(groupId));
+    await batch.commit();
+  },
+
+  /**
+   * Leave a group (non-creator members).
+   * Removes uid from group membership and deletes the user's denormalized entry.
+   */
+  async leaveGroup(groupId, uid) {
+    const snap = await getDoc(groupRef(groupId));
+    const data = snap.data();
+    if (!data) throw new Error("Group not found.");
+
+    const updatedMembers = (data.members ?? []).filter((m) => m.uid !== uid);
+
+    const batch = writeBatch(db);
+    batch.update(groupRef(groupId), {
+      memberUids:        arrayRemove(uid),
+      members:           updatedMembers,
+      pendingInviteUids: arrayRemove(uid),
+    });
+    batch.delete(userDoc(uid, "groups", groupId));
+    await batch.commit();
   },
 
   /**

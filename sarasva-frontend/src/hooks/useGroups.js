@@ -65,9 +65,20 @@ export function useGroups() {
     return groupsService.rejectGroupInvite(inviteId);
   }, []);
 
+  const deleteGroup = useCallback(async (groupId) => {
+    if (!user) return;
+    return groupsService.deleteGroup(groupId, user.id);
+  }, [user]);
+
+  const leaveGroup = useCallback(async (groupId) => {
+    if (!user) return;
+    return groupsService.leaveGroup(groupId, user.id);
+  }, [user]);
+
   return {
     myGroups, groupInvites, loading,
     createGroup, inviteToGroup, acceptInvite, rejectInvite,
+    deleteGroup, leaveGroup,
   };
 }
 

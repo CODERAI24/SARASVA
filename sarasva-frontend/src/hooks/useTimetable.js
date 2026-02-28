@@ -5,7 +5,8 @@ import { useAuth } from "@/context/AuthContext.jsx";
 
 /**
  * Real-time timetable hook backed by Firestore onSnapshot.
- * activate() uses writeBatch to enforce the single-active rule atomically.
+ * activate() toggles a timetable; max 2 can be active simultaneously.
+ * If a 3rd is activated, the oldest-activated one is deactivated.
  */
 export function useTimetable() {
   const { user } = useAuth();
@@ -30,11 +31,12 @@ export function useTimetable() {
     return unsub;
   }, [user]);
 
-  const create = useCallback(async ({ name }) => {
+  const create = useCallback(async ({ name, startDate }) => {
     if (!user) return;
     try {
       await addDoc(userCol(user.id, "timetables"), {
         name,
+        startDate: startDate || null,
         active:    false,
         archived:  false,
         slots:     [],
@@ -43,14 +45,34 @@ export function useTimetable() {
     } catch (err) { setError(err.message); }
   }, [user]);
 
-  /** Atomically deactivate all, then activate the target. */
+  /**
+   * Toggle active state. Max 2 timetables can be active at once.
+   * Activating a 3rd deactivates the oldest-activated one.
+   */
   const activate = useCallback(async (id) => {
     if (!user) return;
     try {
+      const target = timetables.find((t) => t.id === id);
+      if (!target) return;
       const batch = writeBatch(db);
-      timetables.forEach((tt) => {
-        batch.update(userDoc(user.id, "timetables", tt.id), { active: tt.id === id });
-      });
+
+      if (target.active) {
+        // Deactivate this timetable
+        batch.update(userDoc(user.id, "timetables", id), { active: false });
+      } else {
+        // Activate — if 2 are already active, deactivate the oldest activated one
+        const activeOnes = timetables.filter((t) => t.active);
+        if (activeOnes.length >= 2) {
+          const oldest = [...activeOnes].sort((a, b) =>
+            (a.activatedAt ?? a.createdAt).localeCompare(b.activatedAt ?? b.createdAt)
+          )[0];
+          batch.update(userDoc(user.id, "timetables", oldest.id), { active: false });
+        }
+        batch.update(userDoc(user.id, "timetables", id), {
+          active:      true,
+          activatedAt: new Date().toISOString(),
+        });
+      }
       await batch.commit();
     } catch (err) { setError(err.message); }
   }, [user, timetables]);

@@ -1,4 +1,4 @@
-import { useMemo, useEffect } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -10,12 +10,14 @@ import { useAuth }             from "@/hooks/useAuth.js";
 import { useAttendanceSummary, useAttendanceToday } from "@/hooks/useAttendance.js";
 import { useTasks }            from "@/hooks/useTasks.js";
 import { useExams }            from "@/hooks/useExams.js";
+import { useHabits }           from "@/hooks/useHabits.js";
 import { notificationsService } from "@/services/notifications.service.js";
 import { cn }                  from "@/lib/utils.js";
 import {
   ShieldCheck, ShieldAlert, CalendarCheck,
   Target, ListChecks, BookOpen, ArrowRight,
   CheckCircle2, Circle, Plus, Clock, Flame, CheckCheck,
+  Repeat2, Check, ChevronRight,
 } from "lucide-react";
 
 /* ── helpers ─────────────────────────────────────────────────────── */
@@ -65,26 +67,19 @@ function AttTooltip({ active, payload }) {
   );
 }
 
-/* ── Radial gauge for overall attendance ──────────────────────────── */
+/* ── Radial gauge ─────────────────────────────────────────────────── */
 function OverallGauge({ percent, zone }) {
   const data = [{ value: percent, fill: zone === "safe" ? "#10b981" : "#f43f5e" }];
   return (
     <div className="relative flex flex-col items-center justify-center">
       <RadialBarChart
-        width={156} height={156}
-        cx={78} cy={78}
+        width={156} height={156} cx={78} cy={78}
         innerRadius={52} outerRadius={70}
         startAngle={225} endAngle={-45}
-        data={data}
-        barSize={14}
+        data={data} barSize={14}
       >
         <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
-        <RadialBar
-          dataKey="value"
-          cornerRadius={8}
-          background={{ fill: "hsl(var(--muted))" }}
-          angleAxisId={0}
-        />
+        <RadialBar dataKey="value" cornerRadius={8} background={{ fill: "hsl(var(--muted))" }} angleAxisId={0} />
       </RadialBarChart>
       <div className="absolute flex flex-col items-center">
         <span className="text-2xl font-bold leading-none">{percent}%</span>
@@ -94,7 +89,7 @@ function OverallGauge({ percent, zone }) {
   );
 }
 
-/* ── Target panel: subjects that need more attendance ─────────────── */
+/* ── Target panel ─────────────────────────────────────────────────── */
 function TargetPanel({ subjects }) {
   const risk = subjects
     .filter((s) => s.zone === "risk")
@@ -129,14 +124,14 @@ function TargetPanel({ subjects }) {
   );
 }
 
-/* ── Status colours for attendance buttons ────────────────────────── */
+/* ── Attendance button config ─────────────────────────────────────── */
 const ATT_BTNS = [
   { key: "present",   label: "P", activeBg: "bg-emerald-500", activeRing: "ring-emerald-400" },
   { key: "absent",    label: "A", activeBg: "bg-rose-500",    activeRing: "ring-rose-400"    },
   { key: "cancelled", label: "C", activeBg: "bg-amber-400",   activeRing: "ring-amber-300"   },
 ];
 
-/* ── Today attendance panel — inline marking ──────────────────────── */
+/* ── Today attendance panel ───────────────────────────────────────── */
 function TodayPanel({ today = [], day, mark, marking }) {
   const unmarked = today.filter((t) => !t.alreadyMarked);
 
@@ -163,15 +158,18 @@ function TodayPanel({ today = [], day, mark, marking }) {
         </p>
       )}
 
-      {today.map(({ subject, markedStatus }) => (
+      {today.map(({ subject, markedStatus, uniqueKey, timetableName }) => (
         <div
-          key={subject.id}
+          key={uniqueKey ?? subject.id}
           className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2.5"
         >
-          {/* Subject name */}
-          <span className="flex-1 text-sm font-medium truncate">{subject.name}</span>
+          <div className="flex-1 min-w-0">
+            <span className="text-sm font-medium truncate">{subject.name}</span>
+            {timetableName && (
+              <span className="ml-1.5 text-[10px] text-primary/60 font-medium">{timetableName}</span>
+            )}
+          </div>
 
-          {/* Mark buttons — P / A / C */}
           <div className="flex items-center gap-1.5 shrink-0">
             {ATT_BTNS.map(({ key, label, activeBg, activeRing }) => {
               const isActive  = markedStatus === key;
@@ -201,15 +199,24 @@ function TodayPanel({ today = [], day, mark, marking }) {
   );
 }
 
-/* ── Dashboard Tasks Banner — hero section at top ─────────────────── */
-function DashboardTasksBanner({ tasks, toggle }) {
+/* ── Dashboard Tasks Banner — with subtask expansion ─────────────── */
+function DashboardTasksBanner({ tasks, toggle, toggleSubtask }) {
   const now = new Date();
   const overdue  = tasks.filter((t) => !t.completed && t.dueDate && new Date(t.dueDate) < now);
   const highPri  = tasks.filter((t) => !t.completed && t.priority === "high" && !overdue.find((o) => o.id === t.id));
   const upcoming = [...overdue, ...highPri].slice(0, 4);
   const pending  = tasks.filter((t) => !t.completed);
-
   const allClear = pending.length === 0;
+  const [expandedIds, setExpandedIds] = useState(new Set());
+
+  function toggleExpand(taskId) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
+  }
 
   return (
     <div className={cn(
@@ -268,25 +275,81 @@ function DashboardTasksBanner({ tasks, toggle }) {
       ) : upcoming.length > 0 ? (
         <div className="space-y-1.5">
           {upcoming.map((task) => {
-            const isOverdue = task.dueDate && new Date(task.dueDate) < now;
+            const isOverdue  = task.dueDate && new Date(task.dueDate) < now;
+            const subtasks   = task.subtasks ?? [];
+            const isExpanded = expandedIds.has(task.id);
+            const doneSub    = subtasks.filter((s) => s.completed).length;
+
             return (
-              <div
-                key={task.id}
-                className="flex items-center gap-3 rounded-xl bg-white/60 px-3 py-2.5 hover:bg-white/90 transition-colors"
-              >
-                <button
-                  onClick={() => toggle(task.id, task.completed)}
-                  className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
+              <div key={task.id}>
+                <div className="flex items-center gap-3 rounded-xl bg-white/60 px-3 py-2.5 hover:bg-white/90 transition-colors">
+                  <button
+                    onClick={() => toggle(task.id, task.completed)}
+                    className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    <Circle size={17} />
+                  </button>
+
+                  {/* Clickable title — expands subtasks, no underline */}
+                  <button
+                    className="flex-1 text-left text-sm font-medium truncate focus:outline-none"
+                    onClick={() => subtasks.length > 0 && toggleExpand(task.id)}
+                  >
+                    {task.title}
+                  </button>
+
+                  {subtasks.length > 0 && (
+                    <span className="shrink-0 text-[10px] text-muted-foreground font-medium">
+                      {doneSub}/{subtasks.length}
+                    </span>
+                  )}
+                  {subtasks.length > 0 && (
+                    <ChevronRight
+                      size={13}
+                      className={cn(
+                        "shrink-0 text-muted-foreground transition-transform duration-200",
+                        isExpanded && "rotate-90"
+                      )}
+                    />
+                  )}
+
+                  <span className={cn(
+                    "shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold",
+                    isOverdue ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-700"
+                  )}>
+                    {isOverdue ? "overdue" : "high"}
+                  </span>
+                </div>
+
+                {/* Subtask expansion — smooth max-height transition */}
+                <div
+                  className="overflow-hidden transition-all duration-300 ease-in-out"
+                  style={{ maxHeight: isExpanded ? `${subtasks.length * 44 + 8}px` : "0px" }}
                 >
-                  <Circle size={17} />
-                </button>
-                <span className="flex-1 text-sm font-medium truncate">{task.title}</span>
-                <span className={cn(
-                  "shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold",
-                  isOverdue ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-700"
-                )}>
-                  {isOverdue ? "overdue" : "high"}
-                </span>
+                  <div className="ml-10 mt-1 space-y-0.5 pb-1">
+                    {subtasks.map((s) => (
+                      <div
+                        key={s.id}
+                        className="flex items-center gap-2 rounded-lg bg-white/50 px-3 py-1.5"
+                      >
+                        <button
+                          onClick={() => toggleSubtask(task.id, s.id)}
+                          className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
+                        >
+                          {s.completed
+                            ? <CheckCircle2 size={14} className="text-primary" />
+                            : <Circle size={14} />}
+                        </button>
+                        <span className={cn(
+                          "text-xs",
+                          s.completed && "line-through text-muted-foreground"
+                        )}>
+                          {s.title}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             );
           })}
@@ -306,12 +369,78 @@ function DashboardTasksBanner({ tasks, toggle }) {
   );
 }
 
+/* ── Habit Tracker Panel ──────────────────────────────────────────── */
+function HabitTrackerPanel() {
+  const { habits, todayLogs, toggleToday } = useHabits();
+
+  if (habits.length === 0) return null;
+
+  const doneCount = habits.filter((h) => todayLogs[h.id]).length;
+  const allDone   = doneCount === habits.length;
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4 card-shadow">
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold flex items-center gap-1.5">
+            <Repeat2 size={14} className="text-violet-500" />
+            Daily Habits
+          </h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {doneCount}/{habits.length} completed today
+          </p>
+        </div>
+        <Link to="/tasks" className="flex items-center gap-0.5 text-xs text-primary font-medium hover:underline">
+          Manage <ArrowRight size={11} />
+        </Link>
+      </div>
+
+      {allDone && (
+        <div className="mb-2 flex items-center gap-1.5 rounded-lg bg-violet-50 px-2.5 py-1.5">
+          <CheckCheck size={13} className="text-violet-600 shrink-0" />
+          <p className="text-xs font-semibold text-violet-700">All habits done for today!</p>
+        </div>
+      )}
+
+      <div className="space-y-1.5">
+        {habits.map((habit) => {
+          const done = !!(todayLogs[habit.id]);
+          return (
+            <div
+              key={habit.id}
+              className="flex items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5"
+            >
+              <button
+                onClick={() => toggleToday(habit.id)}
+                className={cn(
+                  "shrink-0 h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all duration-150",
+                  done
+                    ? "bg-violet-500 border-violet-500 text-white scale-105"
+                    : "border-muted-foreground/40 hover:border-violet-400"
+                )}
+              >
+                {done && <Check size={12} />}
+              </button>
+              <span className={cn("flex-1 text-sm truncate", done && "line-through text-muted-foreground")}>
+                {habit.name}
+              </span>
+              {done && (
+                <span className="shrink-0 text-[10px] font-semibold text-violet-500">Done ✓</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /* ── Page ─────────────────────────────────────────────────────────── */
 export default function DashboardPage() {
   const { user } = useAuth();
   const { overall, subjects = [] } = useAttendanceSummary();
   const { today = [], date, day, mark, marking } = useAttendanceToday();
-  const { tasks = [], toggle }    = useTasks({ archived: false });
+  const { tasks = [], toggle, toggleSubtask } = useTasks({ archived: false });
   const { exams = [] }            = useExams();
 
   const pendingTasks  = tasks.filter((t) => !t.completed).length;
@@ -319,13 +448,11 @@ export default function DashboardPage() {
   const activeExams   = exams.filter((e) => !e.archived).length;
   const unmarkedToday = today.filter((t) => !t.alreadyMarked).length;
 
-  /* Fire daily notifications once data loads */
   useEffect(() => {
     if (!user || subjects.length === 0) return;
     notificationsService.checkAndAlert(user, subjects, tasks);
   }, [user, subjects, tasks]);
 
-  /* Bar chart data */
   const barData = useMemo(() =>
     subjects.map((s) => ({
       name:               s.subject.name.length > 10 ? s.subject.name.slice(0, 10) + "…" : s.subject.name,
@@ -355,10 +482,10 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* ── TASKS BANNER (top priority) ────────────────────────────── */}
-      <DashboardTasksBanner tasks={tasks} toggle={toggle} />
+      {/* Tasks banner */}
+      <DashboardTasksBanner tasks={tasks} toggle={toggle} toggleSubtask={toggleSubtask} />
 
-      {/* ── TODAY'S ATTENDANCE ──────────────────────────────────────── */}
+      {/* Today's Attendance */}
       <div className="rounded-2xl border border-border bg-card p-4 card-shadow">
         <div className="mb-3 flex items-center justify-between">
           <div>
@@ -375,55 +502,41 @@ export default function DashboardPage() {
         <TodayPanel today={today} day={day} mark={mark} marking={marking} />
       </div>
 
-      {/* Quick stat cards */}
+      {/* Daily Habits (below attendance) */}
+      <HabitTrackerPanel />
+
+      {/* Stat cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
-          icon={CalendarCheck}
-          label="Overall Attendance"
-          value={`${safePercent}%`}
+          icon={CalendarCheck} label="Overall Attendance" value={`${safePercent}%`}
           sub={<ZoneBadge zone={safeZone} />}
-          iconBg="bg-blue-50"
-          iconColor="text-blue-600"
-          to="/attendance"
+          iconBg="bg-blue-50" iconColor="text-blue-600" to="/attendance"
         />
         <StatCard
-          icon={Target}
-          label="Subjects at Risk"
-          value={riskCount}
+          icon={Target} label="Subjects at Risk" value={riskCount}
           sub={riskCount > 0 ? "Need attention" : "All safe"}
           iconBg={riskCount > 0 ? "bg-rose-50" : "bg-emerald-50"}
           iconColor={riskCount > 0 ? "text-rose-600" : "text-emerald-600"}
           to="/attendance"
         />
         <StatCard
-          icon={ListChecks}
-          label="Pending Tasks"
-          value={pendingTasks}
+          icon={ListChecks} label="Pending Tasks" value={pendingTasks}
           sub={pendingTasks > 0
             ? `${tasks.filter((t) => !t.completed && t.dueDate && new Date(t.dueDate) < new Date()).length} overdue`
             : "All clear"}
-          iconBg="bg-violet-50"
-          iconColor="text-violet-600"
-          to="/tasks"
+          iconBg="bg-violet-50" iconColor="text-violet-600" to="/tasks"
         />
         <StatCard
-          icon={BookOpen}
-          label="Active Exams"
-          value={activeExams}
+          icon={BookOpen} label="Active Exams" value={activeExams}
           sub={`${unmarkedToday} class${unmarkedToday !== 1 ? "es" : ""} unmarked today`}
-          iconBg="bg-amber-50"
-          iconColor="text-amber-600"
-          to="/exams"
+          iconBg="bg-amber-50" iconColor="text-amber-600" to="/exams"
         />
       </div>
 
       {/* Main grid: Gauge + Target | Bar chart */}
       <div className="grid gap-4 lg:grid-cols-5">
 
-        {/* Left: Gauge + Target subjects */}
         <div className="space-y-4 lg:col-span-2">
-
-          {/* Overall gauge */}
           <div className="rounded-2xl border border-border bg-card p-4 card-shadow">
             <h3 className="mb-3 text-sm font-semibold">Overall Attendance</h3>
             <div className="flex items-center gap-4">
@@ -443,7 +556,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Target panel */}
           <div className="rounded-2xl border border-border bg-card p-4 card-shadow">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold">Below 75% Alert</h3>
@@ -455,10 +567,8 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Right: Bar chart */}
         <div className="rounded-2xl border border-border bg-card p-4 card-shadow lg:col-span-3">
           <h3 className="mb-4 text-sm font-semibold">Subject-wise Attendance</h3>
-
           {barData.length === 0 ? (
             <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
               No attendance data yet. Start marking classes.
@@ -467,39 +577,19 @@ export default function DashboardPage() {
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={barData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }} barSize={28}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                <XAxis
-                  dataKey="name"
-                  tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  domain={[0, 100]}
-                  tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <ReferenceLine
-                  y={75}
-                  stroke="#f59e0b"
-                  strokeDasharray="6 3"
-                  strokeWidth={1.5}
-                  label={{ value: "75%", position: "insideTopRight", fontSize: 10, fill: "#f59e0b" }}
-                />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                <ReferenceLine y={75} stroke="#f59e0b" strokeDasharray="6 3" strokeWidth={1.5}
+                  label={{ value: "75%", position: "insideTopRight", fontSize: 10, fill: "#f59e0b" }} />
                 <Tooltip content={<AttTooltip />} cursor={{ fill: "hsl(var(--accent))" }} />
                 <Bar dataKey="percent" radius={[6, 6, 0, 0]}>
                   {barData.map((entry, index) => (
-                    <Cell
-                      key={index}
-                      fill={entry.zone === "safe" ? "#10b981" : "#f43f5e"}
-                      fillOpacity={0.82}
-                    />
+                    <Cell key={index} fill={entry.zone === "safe" ? "#10b981" : "#f43f5e"} fillOpacity={0.82} />
                   ))}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           )}
-
           <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <span className="inline-block h-2.5 w-2.5 rounded-sm bg-emerald-500" /> ≥ 75% Safe

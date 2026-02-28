@@ -41,7 +41,7 @@ export default function PTPPage() {
 
   const {
     friends, incomingRequests, outgoingRequests, loading,
-    searchUsers, sendRequest, acceptRequest, rejectRequest, removeFriend,
+    searchUsers, sendRequest, acceptRequest, rejectRequest,
   } = usePTP();
 
   const {
@@ -230,19 +230,19 @@ export default function PTPPage() {
           ) : (
             <div className="divide-y divide-border">
               {friends.map(f => (
-                <div key={f.id} className="flex items-center gap-3 px-4 py-3">
+                <button
+                  key={f.id}
+                  onClick={() => navigate(`/ptp/friend/${f.uid}`)}
+                  className="flex w-full items-center gap-3 px-4 py-3 hover:bg-accent transition-colors text-left"
+                >
                   <Avatar name={f.name} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{f.name}</p>
                     <Bio course={f.course} institute={f.institute} />
+                    <p className="text-[10px] text-primary/60 mt-0.5">Tap to view & share</p>
                   </div>
-                  <button
-                    onClick={() => removeFriend(f.uid)}
-                    className="text-xs text-muted-foreground transition-colors hover:text-destructive"
-                  >
-                    Remove
-                  </button>
-                </div>
+                  <ChevronRight size={15} className="shrink-0 text-muted-foreground" />
+                </button>
               ))}
             </div>
           )}

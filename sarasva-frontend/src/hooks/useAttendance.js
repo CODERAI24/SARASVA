@@ -9,8 +9,10 @@ import {
 /* ── useAttendanceToday ──────────────────────────────────────────── */
 
 /**
- * Loads subjects + active timetable once (getDocs), then sets up an
+ * Loads subjects + ALL active timetables once (getDocs), then sets up an
  * onSnapshot listener on today's attendance records so marking auto-updates the UI.
+ * Supports multiple active timetables (max 2).
+ * Each item in today[] includes { subject, markedStatus, alreadyMarked, timetableName, timetableId, uniqueKey }
  */
 export function useAttendanceToday() {
   const { user } = useAuth();
@@ -27,7 +29,7 @@ export function useAttendanceToday() {
     const todayStr = todayString();
     const dayName  = DAYS[new Date().getDay()];
     let subjects   = [];
-    let activeTT   = null;
+    let activeTTs  = [];
     let unsub      = () => {};
 
     function buildTodayView(attendanceSnap) {
@@ -36,17 +38,45 @@ export function useAttendanceToday() {
         markedMap[d.data().subjectId] = d.data().status;
       });
 
-      const scheduledIds = activeTT
-        ? activeTT.slots.filter((s) => s.day === dayName).map((s) => s.subjectId)
-        : subjects.map((s) => s.id); // no active timetable → show all subjects
-
-      return subjects
-        .filter((s) => scheduledIds.includes(s.id))
-        .map((s) => ({
+      if (activeTTs.length === 0) {
+        // No active timetable — show all subjects without timetable label
+        return subjects.map((s) => ({
           subject:       s,
           markedStatus:  markedMap[s.id] ?? null,
           alreadyMarked: !!markedMap[s.id],
+          timetableName: null,
+          timetableId:   null,
+          uniqueKey:     s.id,
         }));
+      }
+
+      const items = [];
+      const seenKey = new Set();
+
+      activeTTs.forEach((tt) => {
+        const slots = (tt.slots ?? [])
+          .filter((s) => s.day === dayName)
+          .sort((a, b) => (a.startTime ?? "").localeCompare(b.startTime ?? ""));
+
+        slots.forEach((slot) => {
+          const subject = subjects.find((s) => s.id === slot.subjectId);
+          if (!subject) return;
+          const key = `${tt.id}_${subject.id}`;
+          if (seenKey.has(key)) return;
+          seenKey.add(key);
+          items.push({
+            subject,
+            markedStatus:  markedMap[subject.id] ?? null,
+            alreadyMarked: !!markedMap[subject.id],
+            timetableName: tt.name,
+            timetableId:   tt.id,
+            uniqueKey:     key,
+            slot,
+          });
+        });
+      });
+
+      return items;
     }
 
     const init = async () => {
@@ -56,8 +86,10 @@ export function useAttendanceToday() {
           getDocs(query(userCol(user.id, "timetables"), where("active", "==", true))),
         ]);
         subjects = subSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        const ttDoc = ttSnap.docs.find((d) => !d.data().archived);
-        activeTT = ttDoc ? { id: ttDoc.id, ...ttDoc.data() } : null;
+        // Filter by startDate: only timetables that have started by today
+        activeTTs = ttSnap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .filter((tt) => !tt.archived && (!tt.startDate || tt.startDate <= todayStr));
 
         unsub = onSnapshot(
           query(userCol(user.id, "attendance"), where("date", "==", todayStr)),
@@ -79,12 +111,12 @@ export function useAttendanceToday() {
     return () => unsub();
   }, [user]);
 
-  const mark = useCallback(async (subjectId, status) => {
+  /** Mark attendance for a subject. Accepts optional date for retroactive marking. */
+  const mark = useCallback(async (subjectId, status, date) => {
     if (!user) return;
     setMarking(subjectId);
     try {
-      await attendanceService.mark(user.id, { subjectId, status });
-      // onSnapshot auto-updates `today` state after the write
+      await attendanceService.mark(user.id, { subjectId, status, date });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -92,7 +124,6 @@ export function useAttendanceToday() {
     }
   }, [user]);
 
-  // refresh is a no-op — onSnapshot keeps attendance live
   const refresh = useCallback(() => {}, []);
 
   return { date, day, today, loading, error, marking, mark, refresh };
@@ -100,10 +131,6 @@ export function useAttendanceToday() {
 
 /* ── useAttendanceSummary ────────────────────────────────────────── */
 
-/**
- * Loads subjects once (getDocs), then listens to all attendance records
- * via onSnapshot so the summary auto-updates when marks are added.
- */
 export function useAttendanceSummary() {
   const { user } = useAuth();
   const [overall,  setOverall]  = useState(null);
@@ -147,7 +174,7 @@ export function useAttendanceSummary() {
     return () => unsub();
   }, [user]);
 
-  const refresh = useCallback(() => {}, []); // no-op
+  const refresh = useCallback(() => {}, []);
 
   return { overall, subjects, loading, error, refresh };
 }
@@ -161,7 +188,6 @@ export function useAttendanceLog({ subjectId, from, to } = {}) {
 
   useEffect(() => {
     if (!user) return;
-    // Load all attendance for this user; filter client-side to avoid composite index requirements
     return onSnapshot(userCol(user.id, "attendance"), (snap) => {
       let list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       if (subjectId) list = list.filter((r) => r.subjectId === subjectId);

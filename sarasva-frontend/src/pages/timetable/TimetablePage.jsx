@@ -3,12 +3,13 @@ import { useTimetable } from "@/hooks/useTimetable.js";
 import { useSubjects }  from "@/hooks/useSubjects.js";
 import { cn }           from "@/lib/utils.js";
 import {
-  Plus, Trash2, Zap, ChevronDown, ChevronUp, CalendarDays,
+  Plus, Trash2, Zap, ZapOff, ChevronDown, ChevronUp, CalendarDays,
+  LayoutGrid, List, CalendarRange,
 } from "lucide-react";
 
 const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
-/* ── Slot form (inside a timetable card) ─────────────────────────── */
+/* ── Slot form ────────────────────────────────────────────────────── */
 function SlotForm({ timetableId, subjects, onAdd }) {
   const [form, setForm] = useState({
     day: "Monday", subjectId: "", startTime: "09:00", endTime: "10:00",
@@ -37,18 +38,14 @@ function SlotForm({ timetableId, subjects, onAdd }) {
         >
           {DAYS.map((d) => <option key={d}>{d}</option>)}
         </select>
-
         <select
           value={form.subjectId}
           onChange={(e) => set("subjectId", e.target.value)}
           className="rounded-md border border-input bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring"
         >
           <option value="">— Subject —</option>
-          {subjects.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
+          {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
-
         <input
           type="time" value={form.startTime}
           onChange={(e) => set("startTime", e.target.value)}
@@ -60,9 +57,7 @@ function SlotForm({ timetableId, subjects, onAdd }) {
           className="rounded-md border border-input bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring"
         />
       </div>
-
       {err && <p className="text-xs text-destructive">{err}</p>}
-
       <button
         type="submit"
         className="flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
@@ -73,7 +68,7 @@ function SlotForm({ timetableId, subjects, onAdd }) {
   );
 }
 
-/* ── Slot row ─────────────────────────────────────────────────────── */
+/* ── Slot row (list view) ─────────────────────────────────────────── */
 function SlotRow({ slot, subjects, onDelete }) {
   const subject = subjects.find((s) => s.id === slot.subjectId);
   return (
@@ -96,9 +91,68 @@ function SlotRow({ slot, subjects, onDelete }) {
   );
 }
 
+/* ── Table view ───────────────────────────────────────────────────── */
+function TimetableTableView({ slots, subjects }) {
+  if (slots.length === 0) {
+    return <p className="text-sm text-muted-foreground py-2">No slots yet. Add some below.</p>;
+  }
+
+  const activeDays = DAYS.filter((d) => slots.some((s) => s.day === d));
+
+  // Collect all unique time ranges, sorted
+  const timeRanges = [...new Set(
+    slots.map((s) => `${s.startTime ?? ""}–${s.endTime ?? ""}`)
+  )].sort();
+
+  return (
+    <div className="overflow-x-auto rounded-lg border border-border">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="border-b border-border bg-muted/50">
+            <th className="px-3 py-2 text-left font-semibold text-muted-foreground w-24">Time</th>
+            {activeDays.map((d) => (
+              <th key={d} className="px-3 py-2 text-center font-semibold text-muted-foreground">{d.slice(0,3)}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {timeRanges.map((tr) => {
+            const [start, end] = tr.split("–");
+            return (
+              <tr key={tr} className="border-b border-border last:border-0 hover:bg-muted/30">
+                <td className="px-3 py-2 text-muted-foreground font-mono whitespace-nowrap">
+                  {start}<br /><span className="text-[10px]">{end}</span>
+                </td>
+                {activeDays.map((d) => {
+                  const slot = slots.find(
+                    (s) => s.day === d && `${s.startTime ?? ""}–${s.endTime ?? ""}` === tr
+                  );
+                  const subject = slot ? subjects.find((sub) => sub.id === slot.subjectId) : null;
+                  return (
+                    <td key={d} className="px-3 py-2 text-center">
+                      {subject ? (
+                        <span className="inline-block rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">
+                          {subject.name}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground/30">—</span>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 /* ── Timetable card ───────────────────────────────────────────────── */
 function TimetableCard({ tt, subjects, onActivate, onArchive, onAddSlot, onDeleteSlot }) {
-  const [open, setOpen] = useState(false);
+  const [open,     setOpen]     = useState(false);
+  const [viewMode, setViewMode] = useState("list"); // "list" | "table"
 
   return (
     <div className={cn(
@@ -107,25 +161,36 @@ function TimetableCard({ tt, subjects, onActivate, onArchive, onAddSlot, onDelet
     )}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="font-semibold">{tt.name}</span>
           {tt.active && (
             <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
               Active
             </span>
           )}
-          <span className="text-xs text-muted-foreground">{tt.slots.length} slot{tt.slots.length !== 1 ? "s" : ""}</span>
+          <span className="text-xs text-muted-foreground">
+            {tt.slots.length} slot{tt.slots.length !== 1 ? "s" : ""}
+          </span>
+          {tt.startDate && (
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <CalendarRange size={11} />
+              From {new Date(tt.startDate + "T12:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-1">
-          {!tt.active && (
-            <button
-              onClick={() => onActivate(tt.id)}
-              className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-primary hover:bg-primary/10"
-            >
-              <Zap size={13} /> Activate
-            </button>
-          )}
+          <button
+            onClick={() => onActivate(tt.id)}
+            className={cn(
+              "flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
+              tt.active
+                ? "text-amber-600 hover:bg-amber-50"
+                : "text-primary hover:bg-primary/10"
+            )}
+          >
+            {tt.active ? <><ZapOff size={13} /> Deactivate</> : <><Zap size={13} /> Activate</>}
+          </button>
           <button
             onClick={() => onArchive(tt.id)}
             className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
@@ -145,11 +210,39 @@ function TimetableCard({ tt, subjects, onActivate, onArchive, onAddSlot, onDelet
       {/* Expanded body */}
       {open && (
         <div className="space-y-4 border-t border-border px-4 pb-4 pt-3">
+          {tt.slots.length > 0 && (
+            /* View mode toggle */
+            <div className="flex gap-1 self-start overflow-hidden rounded-lg border border-border text-xs">
+              <button
+                onClick={() => setViewMode("list")}
+                className={cn(
+                  "flex items-center gap-1 px-2.5 py-1.5 transition-colors",
+                  viewMode === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+                )}
+              >
+                <List size={12} /> List
+              </button>
+              <button
+                onClick={() => setViewMode("table")}
+                className={cn(
+                  "flex items-center gap-1 px-2.5 py-1.5 transition-colors",
+                  viewMode === "table" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+                )}
+              >
+                <LayoutGrid size={12} /> Table
+              </button>
+            </div>
+          )}
+
           {tt.slots.length === 0 ? (
             <p className="text-sm text-muted-foreground">No slots yet.</p>
+          ) : viewMode === "table" ? (
+            <TimetableTableView slots={tt.slots} subjects={subjects} />
           ) : (
             DAYS.map((day) => {
-              const daySlots = tt.slots.filter((s) => s.day === day);
+              const daySlots = tt.slots
+                .filter((s) => s.day === day)
+                .sort((a, b) => (a.startTime ?? "").localeCompare(b.startTime ?? ""));
               return daySlots.length > 0 ? (
                 <div key={day}>
                   <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{day}</p>
@@ -165,6 +258,7 @@ function TimetableCard({ tt, subjects, onActivate, onArchive, onAddSlot, onDelet
               ) : null;
             })
           )}
+
           <SlotForm timetableId={tt.id} subjects={subjects} onAdd={onAddSlot} />
         </div>
       )}
@@ -176,14 +270,16 @@ function TimetableCard({ tt, subjects, onActivate, onArchive, onAddSlot, onDelet
 export default function TimetablePage() {
   const { timetables, create, activate, archive, addSlot, deleteSlot } = useTimetable();
   const { subjects } = useSubjects({ archived: false });
-  const [newName, setNewName] = useState("");
+  const [newName,      setNewName]      = useState("");
+  const [newStartDate, setNewStartDate] = useState("");
 
   function handleCreate(e) {
     e.preventDefault();
     const name = newName.trim();
     if (!name) return;
-    create({ name });
+    create({ name, startDate: newStartDate || null });
     setNewName("");
+    setNewStartDate("");
   }
 
   function handleArchive(id) {
@@ -191,15 +287,22 @@ export default function TimetablePage() {
   }
 
   const visible = timetables.filter((t) => !t.archived);
+  const activeCount = visible.filter((t) => t.active).length;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <h2 className="text-2xl font-bold">Timetable</h2>
         <p className="text-sm text-muted-foreground">
-          Create timetables and add class slots. Only one timetable is active at a time.
+          Create timetables and add class slots. Up to 2 timetables can be active at once.
         </p>
       </div>
+
+      {activeCount >= 2 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+          2 timetables are active. Activating another will deactivate the oldest one.
+        </div>
+      )}
 
       {subjects.length === 0 && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -207,21 +310,38 @@ export default function TimetablePage() {
         </div>
       )}
 
-      {/* Create */}
+      {/* Create form */}
       <div className="rounded-xl border border-border bg-card p-4">
-        <form onSubmit={handleCreate} className="flex gap-2">
+        <p className="mb-3 text-sm font-semibold">New Timetable</p>
+        <form onSubmit={handleCreate} className="space-y-2">
           <input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder='e.g. "Sem 4 Regular"'
-            className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:ring-offset-2 ring-offset-background"
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:ring-offset-2 ring-offset-background"
           />
-          <button
-            type="submit"
-            className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
-          >
-            <Plus size={15} /> Create
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="flex-1 space-y-0.5">
+              <label className="text-xs text-muted-foreground flex items-center gap-1">
+                <CalendarRange size={11} /> Start date (optional)
+              </label>
+              <input
+                type="date"
+                value={newStartDate}
+                onChange={(e) => setNewStartDate(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <button
+              type="submit"
+              className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 self-end"
+            >
+              <Plus size={15} /> Create
+            </button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Start date prevents the timetable from applying to dates before it was activated.
+          </p>
         </form>
       </div>
 

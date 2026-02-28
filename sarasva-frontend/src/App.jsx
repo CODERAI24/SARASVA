@@ -16,6 +16,7 @@ import ProfilePage    from "@/pages/profile/ProfilePage.jsx";
 import CalendarPage        from "@/pages/calendar/CalendarPage.jsx";
 import PTPPage             from "@/pages/ptp/PTPPage.jsx";
 import GroupDetailPage     from "@/pages/ptp/GroupDetailPage.jsx";
+import FriendDetailPage    from "@/pages/ptp/FriendDetailPage.jsx";
 
 export default function App() {
   const { loading } = useAuth();
@@ -47,8 +48,9 @@ export default function App() {
           <Route path="/tasks"          element={<TasksPage />} />
           <Route path="/profile"        element={<ProfilePage />} />
           <Route path="/calendar"           element={<CalendarPage />} />
-          <Route path="/ptp"                element={<PTPPage />} />
-          <Route path="/ptp/group/:groupId" element={<GroupDetailPage />} />
+          <Route path="/ptp"                         element={<PTPPage />} />
+          <Route path="/ptp/group/:groupId"          element={<GroupDetailPage />} />
+          <Route path="/ptp/friend/:friendUid"       element={<FriendDetailPage />} />
         </Route>
       </Route>
 

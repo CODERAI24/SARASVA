@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Users, Plus, X, Check, Bookmark, BookmarkCheck,
   Calendar, ClipboardList, BookOpen, FileText, StickyNote,
-  UserPlus, ChevronDown, ChevronUp,
+  UserPlus, ChevronDown, ChevronUp, Trash2, LogOut,
 } from "lucide-react";
 import { useGroupDetail, useGroups } from "@/hooks/useGroups.js";
 import { usePTP } from "@/hooks/usePTP.js";
@@ -58,7 +58,7 @@ export default function GroupDetailPage() {
   const { user }    = useAuth();
 
   const { group, posts, loading, createPost, toggleSave } = useGroupDetail(groupId);
-  const { inviteToGroup } = useGroups();
+  const { inviteToGroup, deleteGroup, leaveGroup } = useGroups();
   const { friends } = usePTP();
 
   /* ── Post form ──────────────────────────────────────────────── */
@@ -79,7 +79,7 @@ export default function GroupDetailPage() {
   /* ── Save optimistic state ───────────────────────────────────── */
   const [savedMap, setSavedMap] = useState({}); // postId → bool override
 
-  /* ── Derived ────────────────────────────────────────────────── */
+  const isCreator = group?.createdBy === user?.id;
   const invitableFriends = friends.filter(
     f => !group?.memberUids?.includes(f.uid)
   );
@@ -125,6 +125,22 @@ export default function GroupDetailPage() {
     } catch (err) { setInviteError(err.message); }
   }
 
+  async function handleDeleteGroup() {
+    if (!confirm(`Delete "${group.name}"? This cannot be undone and will remove the group for all members.`)) return;
+    try {
+      await deleteGroup(groupId);
+      navigate("/ptp");
+    } catch (err) { alert(err.message); }
+  }
+
+  async function handleLeaveGroup() {
+    if (!confirm(`Leave "${group.name}"?`)) return;
+    try {
+      await leaveGroup(groupId);
+      navigate("/ptp");
+    } catch (err) { alert(err.message); }
+  }
+
   /* ── Loading / not found ─────────────────────────────────────── */
   if (loading) return (
     <div className="flex h-40 items-center justify-center">
@@ -157,6 +173,23 @@ export default function GroupDetailPage() {
             {group.memberUids?.length ?? 0} member{group.memberUids?.length !== 1 ? "s" : ""}
           </p>
         </div>
+        {isCreator ? (
+          <button
+            onClick={handleDeleteGroup}
+            className="flex items-center gap-1 rounded-lg border border-destructive/30 px-2.5 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors"
+            title="Delete group"
+          >
+            <Trash2 size={13} /> Delete
+          </button>
+        ) : (
+          <button
+            onClick={handleLeaveGroup}
+            className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted transition-colors"
+            title="Leave group"
+          >
+            <LogOut size={13} /> Leave
+          </button>
+        )}
       </div>
 
       {/* ── Members panel ────────────────────────────────────────── */}
