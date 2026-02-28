@@ -15,7 +15,7 @@ import { cn }                  from "@/lib/utils.js";
 import {
   ShieldCheck, ShieldAlert, CalendarCheck,
   Target, ListChecks, BookOpen, ArrowRight,
-  CheckCircle2, Circle, Plus, Clock, Flame,
+  CheckCircle2, Circle, Plus, Clock, Flame, CheckCheck,
 } from "lucide-react";
 
 /* ── helpers ─────────────────────────────────────────────────────── */
@@ -129,39 +129,72 @@ function TargetPanel({ subjects }) {
   );
 }
 
-/* ── Today panel ──────────────────────────────────────────────────── */
-function TodayPanel({ today = [], date, day }) {
+/* ── Status colours for attendance buttons ────────────────────────── */
+const ATT_BTNS = [
+  { key: "present",   label: "P", activeBg: "bg-emerald-500", activeRing: "ring-emerald-400" },
+  { key: "absent",    label: "A", activeBg: "bg-rose-500",    activeRing: "ring-rose-400"    },
+  { key: "cancelled", label: "C", activeBg: "bg-amber-400",   activeRing: "ring-amber-300"   },
+];
+
+/* ── Today attendance panel — inline marking ──────────────────────── */
+function TodayPanel({ today = [], day, mark, marking }) {
   const unmarked = today.filter((t) => !t.alreadyMarked);
 
   if (today.length === 0) {
-    return <p className="py-3 text-center text-sm text-muted-foreground">No classes today ({day}).</p>;
+    return (
+      <p className="py-4 text-center text-sm text-muted-foreground">
+        No classes scheduled today ({day}).
+      </p>
+    );
   }
 
+  const allDone = unmarked.length === 0;
+
   return (
-    <div className="space-y-1.5">
-      {unmarked.length > 0 && (
-        <p className="text-xs font-semibold text-amber-700 bg-amber-50 rounded-lg px-2 py-1">
+    <div className="space-y-2">
+      {allDone ? (
+        <div className="flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1.5">
+          <CheckCheck size={13} className="text-emerald-600 shrink-0" />
+          <p className="text-xs font-semibold text-emerald-700">All classes marked for today!</p>
+        </div>
+      ) : (
+        <p className="rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-700">
           {unmarked.length} class{unmarked.length !== 1 ? "es" : ""} not yet marked
         </p>
       )}
-      {today.map(({ subject, markedStatus, alreadyMarked }) => (
-        <div key={subject.id} className="flex items-center justify-between rounded-xl px-2.5 py-1.5 hover:bg-muted/60 transition-colors">
-          <span className="text-sm">{subject.name}</span>
-          {alreadyMarked ? (
-            <span className={cn(
-              "rounded-full px-2 py-0.5 text-xs font-semibold capitalize",
-              markedStatus === "present"   && "bg-emerald-100 text-emerald-800",
-              markedStatus === "absent"    && "bg-rose-100 text-rose-700",
-              markedStatus === "cancelled" && "bg-amber-100 text-amber-700",
-              markedStatus === "extra"     && "bg-blue-100 text-blue-700",
-            )}>
-              {markedStatus}
-            </span>
-          ) : (
-            <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-              unmarked
-            </span>
-          )}
+
+      {today.map(({ subject, markedStatus }) => (
+        <div
+          key={subject.id}
+          className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2.5"
+        >
+          {/* Subject name */}
+          <span className="flex-1 text-sm font-medium truncate">{subject.name}</span>
+
+          {/* Mark buttons — P / A / C */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {ATT_BTNS.map(({ key, label, activeBg, activeRing }) => {
+              const isActive  = markedStatus === key;
+              const isLoading = marking === subject.id;
+              return (
+                <button
+                  key={key}
+                  disabled={isLoading}
+                  onClick={() => mark(subject.id, key)}
+                  title={key.charAt(0).toUpperCase() + key.slice(1)}
+                  className={cn(
+                    "h-7 w-7 rounded-full text-[11px] font-bold transition-all duration-150 select-none",
+                    isActive
+                      ? `${activeBg} text-white ring-2 ring-offset-1 ${activeRing} scale-110`
+                      : "bg-muted text-muted-foreground hover:bg-muted/80",
+                    isLoading && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  {isLoading && marking === subject.id ? "…" : label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       ))}
     </div>
@@ -277,7 +310,7 @@ function DashboardTasksBanner({ tasks, toggle }) {
 export default function DashboardPage() {
   const { user } = useAuth();
   const { overall, subjects = [] } = useAttendanceSummary();
-  const { today = [], date, day } = useAttendanceToday();
+  const { today = [], date, day, mark, marking } = useAttendanceToday();
   const { tasks = [], toggle }    = useTasks({ archived: false });
   const { exams = [] }            = useExams();
 
@@ -324,6 +357,23 @@ export default function DashboardPage() {
 
       {/* ── TASKS BANNER (top priority) ────────────────────────────── */}
       <DashboardTasksBanner tasks={tasks} toggle={toggle} />
+
+      {/* ── TODAY'S ATTENDANCE ──────────────────────────────────────── */}
+      <div className="rounded-2xl border border-border bg-card p-4 card-shadow">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold flex items-center gap-1.5">
+              <CalendarCheck size={14} className="text-primary" />
+              Today's Attendance
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">{day}, {date}</p>
+          </div>
+          <Link to="/attendance" className="flex items-center gap-0.5 text-xs text-primary font-medium hover:underline">
+            Full view <ArrowRight size={11} />
+          </Link>
+        </div>
+        <TodayPanel today={today} day={day} mark={mark} marking={marking} />
+      </div>
 
       {/* Quick stat cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -464,19 +514,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Bottom row: Today's classes */}
-      <div className="rounded-2xl border border-border bg-card p-4 card-shadow">
-        <div className="mb-3 flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-semibold">Today's Classes</h3>
-            <p className="text-xs text-muted-foreground">{day}, {date}</p>
-          </div>
-          <Link to="/attendance" className="flex items-center gap-0.5 text-xs text-primary font-medium hover:underline">
-            Mark <ArrowRight size={11} />
-          </Link>
-        </div>
-        <TodayPanel today={today} date={date} day={day} />
-      </div>
     </div>
   );
 }

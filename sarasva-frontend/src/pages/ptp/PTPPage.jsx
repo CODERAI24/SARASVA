@@ -155,7 +155,10 @@ export default function PTPPage() {
               </p>
             </div>
           ) : searchResults.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">No users found.</p>
+            <div className="px-4 py-6 text-center space-y-1">
+              <p className="text-sm text-muted-foreground">No users found for "{searchQuery}".</p>
+              <p className="text-xs text-muted-foreground">The person must open the Sarasva app at least once to appear in search.</p>
+            </div>
           ) : (
             <div className="divide-y divide-border">
               {searchResults.map(person => (

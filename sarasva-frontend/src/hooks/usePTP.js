@@ -92,16 +92,14 @@ export function usePTP() {
     try {
       const results = await ptpService.searchUsers(nameQuery.trim());
       return {
-        results: results.filter(u =>
-          u.uid !== user.id &&
-          !friends.find(f => f.uid === u.uid)
-        ),
+        // Only exclude the current user — friends still show with a "Friends" badge
+        results: results.filter(u => u.uid !== user.id),
         error: null,
       };
     } catch (err) {
       return { results: [], error: err.message };
     }
-  }, [user, friends]);
+  }, [user]);
 
   const sendRequest = useCallback(async (toUser) => {
     if (!user) return;
