@@ -17,7 +17,7 @@ const PUBLIC_KEY = "ED2eDc6-CLeSavBsg";
 const TPL_ATTEND = import.meta.env.VITE_EMAILJS_TPL_ATTEND || "";
 const TPL_TASK   = import.meta.env.VITE_EMAILJS_TPL_TASK   || "";
 
-const APP_ICON = "/logo192.png";
+const APP_ICON = "/SARASVA/logo.png";
 const BASE_URL  = window.location.origin;
 
 const DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
