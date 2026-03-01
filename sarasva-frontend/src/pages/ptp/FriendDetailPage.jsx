@@ -12,6 +12,7 @@ import { useTimetable }    from "@/hooks/useTimetable.js";
 import { useAuth }         from "@/hooks/useAuth.js";
 import { tasksService }    from "@/services/tasks.service.js";
 import { cn }              from "@/lib/utils.js";
+import UserAvatar          from "@/components/UserAvatar.jsx";
 
 /* ── Post type config ─────────────────────────────────────────────── */
 const POST_TYPES = [
@@ -33,17 +34,6 @@ const POST_TYPES = [
 
 function typeConfig(value) {
   return POST_TYPES.find((p) => p.value === value) ?? POST_TYPES[0];
-}
-
-/* ── Avatar ───────────────────────────────────────────────────────── */
-function Avatar({ name, size = "lg" }) {
-  const initials = (name ?? "?").split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
-  const sz = size === "lg" ? "h-16 w-16 text-xl" : size === "md" ? "h-10 w-10 text-sm" : "h-8 w-8 text-xs";
-  return (
-    <div className={cn("shrink-0 rounded-full bg-primary/15 flex items-center justify-center font-bold text-primary", sz)}>
-      {initials}
-    </div>
-  );
 }
 
 /* ── Post type badge ──────────────────────────────────────────────── */
@@ -197,7 +187,7 @@ export default function FriendDetailPage() {
       {/* ── Friend profile card ─────────────────────────────────────── */}
       {friend && (
         <div className="rounded-xl border border-border bg-card p-4 flex items-center gap-4">
-          <Avatar name={friend.name} size="lg" />
+          <UserAvatar user={friend} size="lg" />
           <div className="flex-1 min-w-0">
             <p className="text-base font-semibold">{friend.name}</p>
             {friend.course && <p className="text-sm text-muted-foreground">{friend.course}</p>}
@@ -415,7 +405,7 @@ export default function FriendDetailPage() {
 
                   <div className="flex items-center justify-between pt-0.5">
                     <div className="flex items-center gap-1.5">
-                      <Avatar name={post.authorName} size="sm" />
+                      <UserAvatar user={isMyPost ? user : friend} size="xs" />
                       <span className="text-xs text-muted-foreground">
                         {isMyPost ? "You" : post.authorName}
                       </span>

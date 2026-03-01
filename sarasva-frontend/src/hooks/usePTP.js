@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
-  onSnapshot, query, where, collection, getDoc, setDoc,
+  onSnapshot, query, where, collection, getDoc, setDoc, doc,
 } from "firebase/firestore";
 import { db, userCol, userDoc } from "@/firebase/config.js";
 import { useAuth } from "@/context/AuthContext.jsx";
@@ -96,12 +96,17 @@ export function usePTP() {
         const req = d.data();
         const existing = await getDoc(userDoc(user.id, "friends", req.toUid));
         if (!existing.exists()) {
+          // Fetch acceptor's public profile to get their avatar + course/institute
+          const profileSnap = await getDoc(doc(db, "publicProfiles", req.toUid)).catch(() => null);
+          const profile = profileSnap?.exists() ? profileSnap.data() : {};
           await setDoc(userDoc(user.id, "friends", req.toUid), {
-            uid:       req.toUid,
-            name:      req.toName,
-            course:    "",
-            institute: "",
-            addedAt:   new Date().toISOString(),
+            uid:         req.toUid,
+            name:        req.toName,
+            course:      profile.course      ?? "",
+            institute:   profile.institute   ?? "",
+            avatarColor: profile.avatarColor ?? "#6366f1",
+            avatarEmoji: profile.avatarEmoji ?? null,
+            addedAt:     new Date().toISOString(),
           });
         }
       }
@@ -127,7 +132,8 @@ export function usePTP() {
     try {
       await ptpService.sendRequest(
         user.id, user.name, user.course ?? "", user.institute ?? "",
-        toUser.uid, toUser.name
+        toUser.uid, toUser.name,
+        user.avatarColor ?? "#6366f1", user.avatarEmoji ?? null
       );
     } catch (err) {
       setError(err.message);
@@ -142,7 +148,8 @@ export function usePTP() {
         request.id,
         request.fromUid, request.fromName,
         request.fromCourse ?? "", request.fromInstitute ?? "",
-        user.id, user.name
+        user.id, user.name,
+        request.fromAvatarColor, request.fromAvatarEmoji
       );
     } catch (err) {
       setError(err.message);

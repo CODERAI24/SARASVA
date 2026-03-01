@@ -13,6 +13,7 @@ import { useTimetable } from "@/hooks/useTimetable.js";
 import { useAuth }      from "@/hooks/useAuth.js";
 import { tasksService } from "@/services/tasks.service.js";
 import { cn }           from "@/lib/utils.js";
+import UserAvatar       from "@/components/UserAvatar.jsx";
 
 /* ── Post type config ────────────────────────────────────────────── */
 const POST_TYPES = [
@@ -34,17 +35,6 @@ const POST_TYPES = [
 
 function typeConfig(value) {
   return POST_TYPES.find(p => p.value === value) ?? POST_TYPES[0];
-}
-
-/* ── Small reusable components ───────────────────────────────────── */
-function Avatar({ name, size = "sm" }) {
-  const initials = (name ?? "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
-  const sz = size === "xs" ? "h-7 w-7 text-[10px]" : "h-9 w-9 text-xs";
-  return (
-    <div className={`${sz} shrink-0 rounded-full bg-primary/15 flex items-center justify-center font-bold text-primary`}>
-      {initials}
-    </div>
-  );
 }
 
 function PostTypeBadge({ type }) {
@@ -257,7 +247,7 @@ export default function GroupDetailPage() {
             <div className="divide-y divide-border">
               {(group.members ?? []).map(m => (
                 <div key={m.uid} className="flex items-center gap-3 px-4 py-2.5">
-                  <Avatar name={m.name} size="xs" />
+                  <UserAvatar user={m} size="xs" />
                   <p className="flex-1 text-sm">{m.name}</p>
                   {m.uid === group.createdBy && (
                     <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
@@ -287,7 +277,7 @@ export default function GroupDetailPage() {
                   ) : (
                     invitableFriends.map(f => (
                       <div key={f.uid} className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
-                        <Avatar name={f.name} size="xs" />
+                        <UserAvatar user={f} size="xs" />
                         <span className="flex-1 text-sm">{f.name}</span>
                         {inviteSentMap[f.uid] ? (
                           <span className="text-xs text-muted-foreground">Sent</span>
@@ -480,7 +470,7 @@ export default function GroupDetailPage() {
 
                 <div className="flex items-center justify-between pt-0.5">
                   <div className="flex items-center gap-1.5">
-                    <Avatar name={post.authorName} size="xs" />
+                    <UserAvatar user={{ name: post.authorName }} size="xs" />
                     <span className="text-xs text-muted-foreground">{post.authorName}</span>
                   </div>
                   <div className="flex items-center gap-2">

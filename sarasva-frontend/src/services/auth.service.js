@@ -22,13 +22,14 @@ import { doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
 import { auth, db } from "@/firebase/config.js";
 
 /** Write searchable public profile so PTP peer search works */
-async function upsertPublicProfile(uid, { name, course }) {
-  const n = name ?? "";
-  await setDoc(
-    doc(db, "publicProfiles", uid),
-    { name: n, nameLower: n.toLowerCase(), course: course ?? "", uid },
-    { merge: true }
-  );
+async function upsertPublicProfile(uid, data = {}) {
+  const patch = { uid };
+  if (data.name      !== undefined) { const n = data.name ?? ""; patch.name = n; patch.nameLower = n.toLowerCase(); }
+  if (data.course    !== undefined) patch.course    = data.course    ?? "";
+  if (data.institute !== undefined) patch.institute = data.institute ?? "";
+  if (data.avatarColor !== undefined) patch.avatarColor = data.avatarColor;
+  if (data.avatarEmoji  !== undefined) patch.avatarEmoji  = data.avatarEmoji;
+  await setDoc(doc(db, "publicProfiles", uid), patch, { merge: true });
 }
 
 const DEFAULT_SETTINGS = {
@@ -71,7 +72,7 @@ export const authService = {
     // Store extended profile in Firestore
     const profile = { name, course, semester, institute: "", settings: DEFAULT_SETTINGS };
     await setDoc(profileRef(cred.user.uid), profile);
-    await upsertPublicProfile(cred.user.uid, { name, course, institute: "" });
+    await upsertPublicProfile(cred.user.uid, { name, course, institute: "", avatarColor: "#6366f1", avatarEmoji: null });
 
     return buildUser(cred.user, profile);
   },
@@ -109,9 +110,11 @@ export const authService = {
       const profile = snap.exists() ? snap.data() : {};
       // Backfill publicProfile for users who registered before PTP feature
       upsertPublicProfile(cred.user.uid, {
-        name:      profile.name      ?? cred.user.displayName ?? "",
-        course:    profile.course    ?? "",
-        institute: profile.institute ?? "",
+        name:        profile.name        ?? cred.user.displayName ?? "",
+        course:      profile.course      ?? "",
+        institute:   profile.institute   ?? "",
+        avatarColor: profile.avatarColor ?? "#6366f1",
+        avatarEmoji: profile.avatarEmoji ?? null,
       }).catch(() => {}); // non-blocking, best-effort
       return buildUser(cred.user, profile);
     } catch (err) {
@@ -149,11 +152,13 @@ export const authService = {
     if (!firebaseUser) return null;
     const snap    = await getDoc(profileRef(firebaseUser.uid));
     const profile = snap.exists() ? snap.data() : {};
-    // Backfill / refresh public profile on every app startup so nameLower is always present
+    // Backfill / refresh public profile on every app startup so nameLower + avatar are current
     upsertPublicProfile(firebaseUser.uid, {
-      name:      profile.name      ?? firebaseUser.displayName ?? "",
-      course:    profile.course    ?? "",
-      institute: profile.institute ?? "",
+      name:        profile.name        ?? firebaseUser.displayName ?? "",
+      course:      profile.course      ?? "",
+      institute:   profile.institute   ?? "",
+      avatarColor: profile.avatarColor ?? "#6366f1",
+      avatarEmoji: profile.avatarEmoji ?? null,
     }).catch(() => {}); // non-blocking
     return buildUser(firebaseUser, profile);
   },
@@ -227,5 +232,7 @@ export const authService = {
     if (avatarColor !== undefined) patch.avatarColor = avatarColor;
     if (avatarEmoji  !== undefined) patch.avatarEmoji  = avatarEmoji;
     await updateDoc(profileRef(firebaseUser.uid), patch);
+    // Sync to public profile so search results and friends see the updated avatar
+    await upsertPublicProfile(firebaseUser.uid, patch);
   },
 };

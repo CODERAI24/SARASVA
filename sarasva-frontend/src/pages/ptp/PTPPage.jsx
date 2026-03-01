@@ -7,6 +7,7 @@ import {
 import { usePTP } from "@/hooks/usePTP.js";
 import { useGroups } from "@/hooks/useGroups.js";
 import { cn } from "@/lib/utils.js";
+import UserAvatar from "@/components/UserAvatar.jsx";
 
 /* ── Institute abbreviation (e.g. "NIT Calicut" → "NITC") ────────── */
 function abbrev(str) {
@@ -20,18 +21,6 @@ function Bio({ course, institute }) {
   if (!parts.length) return null;
   return (
     <p className="truncate text-xs text-muted-foreground">{parts.join(" · ")}</p>
-  );
-}
-
-/* ── Avatar initials ─────────────────────────────────────────────── */
-function Avatar({ name, size = "md" }) {
-  const initials = (name ?? "?")
-    .split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
-  const sz = size === "sm" ? "h-9 w-9 text-xs" : "h-11 w-11 text-sm";
-  return (
-    <div className={`${sz} shrink-0 rounded-full bg-primary/15 flex items-center justify-center font-bold text-primary`}>
-      {initials}
-    </div>
   );
 }
 
@@ -163,7 +152,7 @@ export default function PTPPage() {
             <div className="divide-y divide-border">
               {searchResults.map(person => (
                 <div key={person.uid} className="flex items-center gap-3 px-4 py-3">
-                  <Avatar name={person.name} />
+                  <UserAvatar user={person} size="md" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{person.name}</p>
                     <Bio course={person.course} institute={person.institute} />
@@ -235,7 +224,7 @@ export default function PTPPage() {
                   onClick={() => navigate(`/ptp/friend/${f.uid}`)}
                   className="flex w-full items-center gap-3 px-4 py-3 hover:bg-accent transition-colors text-left"
                 >
-                  <Avatar name={f.name} />
+                  <UserAvatar user={f} size="md" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{f.name}</p>
                     <Bio course={f.course} institute={f.institute} />
@@ -262,7 +251,7 @@ export default function PTPPage() {
               <div className="divide-y divide-border">
                 {incomingRequests.map(req => (
                   <div key={req.id} className="flex items-center gap-3 px-4 py-3">
-                    <Avatar name={req.fromName} />
+                    <UserAvatar user={{ name: req.fromName, avatarColor: req.fromAvatarColor, avatarEmoji: req.fromAvatarEmoji }} size="md" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{req.fromName}</p>
                       <Bio course={req.fromCourse} institute={req.fromInstitute} />
@@ -326,7 +315,7 @@ export default function PTPPage() {
               <div className="divide-y divide-border">
                 {outgoingRequests.map(req => (
                   <div key={req.id} className="flex items-center gap-3 px-4 py-3">
-                    <Avatar name={req.toName} />
+                    <UserAvatar user={{ name: req.toName }} size="md" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{req.toName}</p>
                       <p className="text-xs text-muted-foreground">Request pending…</p>

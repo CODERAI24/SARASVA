@@ -45,8 +45,8 @@ export const ptpService = {
       .filter(u => (u.name ?? "").toLowerCase().includes(lower));
   },
 
-  /** Send a friend request — includes sender's course+institute so recipient card can show it */
-  async sendRequest(fromUid, fromName, fromCourse, fromInstitute, toUid, toName) {
+  /** Send a friend request — includes sender's course+institute+avatar so recipient card can show it */
+  async sendRequest(fromUid, fromName, fromCourse, fromInstitute, toUid, toName, fromAvatarColor, fromAvatarEmoji) {
     // Avoid duplicate pending requests
     const existingQ = query(
       friendRequestsCol(),
@@ -65,6 +65,8 @@ export const ptpService = {
 
     await addDoc(friendRequestsCol(), {
       fromUid, fromName, fromCourse: fromCourse ?? "", fromInstitute: fromInstitute ?? "",
+      fromAvatarColor: fromAvatarColor ?? "#6366f1",
+      fromAvatarEmoji: fromAvatarEmoji ?? null,
       toUid, toName,
       status: "pending",
       createdAt: new Date().toISOString(),
@@ -77,10 +79,12 @@ export const ptpService = {
    * writing to the sender's collection). The sender's side is handled automatically
    * by the accepted-requests listener in usePTP.js.
    */
-  async acceptRequest(requestId, fromUid, fromName, fromCourse, fromInstitute, toUid, toName) {
+  async acceptRequest(requestId, fromUid, fromName, fromCourse, fromInstitute, toUid, toName, fromAvatarColor, fromAvatarEmoji) {
     await setDoc(userDoc(toUid, "friends", fromUid), {
       uid: fromUid, name: fromName,
       course: fromCourse ?? "", institute: fromInstitute ?? "",
+      avatarColor: fromAvatarColor ?? "#6366f1",
+      avatarEmoji: fromAvatarEmoji ?? null,
       addedAt: new Date().toISOString(),
     });
     await updateDoc(friendRequestRef(requestId), { status: "accepted" });
