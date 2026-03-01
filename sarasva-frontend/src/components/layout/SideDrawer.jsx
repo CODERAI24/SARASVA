@@ -17,6 +17,7 @@ export default function SideDrawer({ open, onClose }) {
   const [addingExam,    setAddingExam]    = useState(false);
   const [examName,      setExamName]      = useState("");
 
+  const { logout } = useAuth();
   const { create: createSubject } = useSubjects({ archived: false });
   const { create: createExam }    = useExams();
   const navigate = useNavigate();

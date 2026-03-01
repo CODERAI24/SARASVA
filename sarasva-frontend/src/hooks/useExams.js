@@ -167,10 +167,23 @@ export function useExams() {
     } catch (err) { setError(err.message); }
   }, [user, exams]);
 
+
+  /** Set or update the study note for a subject within an exam. */
+  const setSubjectNotes = useCallback(async (examId, subjectId, notes) => {
+    if (!user) return;
+    try {
+      const exam = exams.find((e) => e.id === examId);
+      if (!exam) return;
+      const subjects = exam.subjects.map((s) =>
+        s.subjectId === subjectId ? { ...s, notes } : s
+      );
+      await updateDoc(userDoc(user.id, 'exams', examId), { subjects });
+    } catch (err) { setError(err.message); }
+  }, [user, exams]);
   return {
     exams, loading, error,
     create, update, archive,
-    addSubject, removeSubject, moveSubject, setSubjectDueDate,
+    addSubject, removeSubject, moveSubject, setSubjectDueDate, setSubjectNotes,
     addChapter, updateChapter, deleteChapter,
   };
 }

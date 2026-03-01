@@ -1,26 +1,34 @@
 /**
  * Exams service — Firestore implementation.
- * Each exam is one Firestore doc with nested subjects + chapters arrays.
- * withVirtuals and enrichExam are pure functions consumed by the hook.
+ * Chapter model: { id, name, theoryDone: bool, practiceCount: number, notes: string }
+ * Subject virtuals (theoryProgress, practiceProgress, overallProgress, allDone) are
+ * computed from chapters on every read — nothing extra is stored in Firestore.
  */
 import { addDoc, updateDoc } from "firebase/firestore";
 import { userCol, userDoc } from "@/firebase/config.js";
 
-/** Mirrors chapterSchema virtuals (priorityScore, overallProgress). */
+/**
+ * Normalize a chapter, handling legacy data that used
+ * theoryProgress (0-100) and practiceProgress (0-100) numbers.
+ */
 export function withVirtuals(chapter) {
-  const overall  = Math.round((chapter.theoryProgress + chapter.practiceProgress) / 2);
-  const priority = Math.round((100 - overall) * chapter.weightage);
-  return { ...chapter, overallProgress: overall, priorityScore: priority };
+  const theoryDone    = chapter.theoryDone    ?? (typeof chapter.theoryProgress   === "number" ? chapter.theoryProgress   >= 100 : false);
+  const practiceCount = chapter.practiceCount ?? (typeof chapter.practiceProgress === "number" && chapter.practiceProgress > 0 ? 1 : 0);
+  return { ...chapter, theoryDone, practiceCount };
 }
 
+/** Enrich an exam: normalize chapters and compute subject-level virtual fields. */
 export function enrichExam(exam) {
-  return {
-    ...exam,
-    subjects: (exam.subjects ?? []).map((s) => ({
-      ...s,
-      chapters: (s.chapters ?? []).map(withVirtuals),
-    })),
-  };
+  const subjects = (exam.subjects ?? []).map((s) => {
+    const chapters         = (s.chapters ?? []).map(withVirtuals);
+    const total            = chapters.length;
+    const theoryProgress   = total === 0 ? 0 : Math.round(chapters.filter((c) => c.theoryDone).length / total * 100);
+    const practiceProgress = total === 0 ? 0 : Math.round(chapters.filter((c) => (c.practiceCount ?? 0) > 0).length / total * 100);
+    const overallProgress  = Math.round((theoryProgress + practiceProgress) / 2);
+    const allDone          = total > 0 && theoryProgress === 100 && practiceProgress === 100;
+    return { ...s, chapters, theoryProgress, practiceProgress, overallProgress, allDone };
+  });
+  return { ...exam, subjects };
 }
 
 export const examsService = {

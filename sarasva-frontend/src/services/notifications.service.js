@@ -17,8 +17,8 @@ const PUBLIC_KEY = "ED2eDc6-CLeSavBsg";
 const TPL_ATTEND = import.meta.env.VITE_EMAILJS_TPL_ATTEND || "";
 const TPL_TASK   = import.meta.env.VITE_EMAILJS_TPL_TASK   || "";
 
-const APP_ICON = "/SARASVA/logo.png";
-const BASE_HASH = window.location.origin + "/SARASVA/#";
+const APP_ICON = "/logo192.png";
+const BASE_URL  = window.location.origin;
 
 const DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
@@ -58,7 +58,7 @@ export const notificationsService = {
     try {
       const n = new Notification(title, { body, icon: APP_ICON, badge: APP_ICON, tag });
       if (path) {
-        n.onclick = () => { window.focus(); window.location.href = BASE_HASH + path; };
+        n.onclick = () => { window.focus(); window.location.href = BASE_URL + path; };
       }
     } catch {
       // Ignore — some browsers block new Notification() outside service worker
@@ -223,5 +223,14 @@ export const notificationsService = {
         this.sendTaskAlert(user.email, user.name, overdueTasks);
       }
     }
+  },
+
+  /** Notify that a new friend request arrived. */
+  notifyFriendRequest(fromName) {
+    this.push(
+      `👋 Friend request from ${fromName}`,
+      "Tap to view and respond on your Study Peers page.",
+      { tag: `friend-req-${fromName}`, path: "/ptp" }
+    );
   },
 };

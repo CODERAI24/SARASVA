@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   onSnapshot, query, where, collection, getDoc, setDoc,
 } from "firebase/firestore";
 import { db, userCol, userDoc } from "@/firebase/config.js";
 import { useAuth } from "@/context/AuthContext.jsx";
 import { ptpService } from "@/services/ptp.service.js";
+import { notificationsService } from "@/services/notifications.service.js";
 
 /**
  * Real-time PTP (peer-to-peer) hook.
@@ -17,6 +18,7 @@ export function usePTP() {
   const [outgoingRequests, setOutgoingRequests] = useState([]);
   const [loading,          setLoading]          = useState(true);
   const [error,            setError]            = useState(null);
+  const prevIncomingCount  = useRef(null); // null = initial load (don't notify)
 
   // Real-time friends listener
   useEffect(() => {
@@ -31,7 +33,7 @@ export function usePTP() {
     );
   }, [user]);
 
-  // Real-time incoming requests listener
+  // Real-time incoming requests listener + friend-request notification
   useEffect(() => {
     if (!user) return;
     const q = query(
@@ -41,11 +43,17 @@ export function usePTP() {
     return onSnapshot(
       q,
       (snap) => {
-        setIncomingRequests(
-          snap.docs
-            .map(d => ({ id: d.id, ...d.data() }))
-            .filter((req) => req.status === "pending")
-        );
+        const pending = snap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter((req) => req.status === "pending");
+        setIncomingRequests(pending);
+
+        // Notify only when count grows (skip initial load)
+        if (prevIncomingCount.current !== null && pending.length > prevIncomingCount.current) {
+          const newest = pending[pending.length - 1];
+          if (newest?.fromName) notificationsService.notifyFriendRequest(newest.fromName);
+        }
+        prevIncomingCount.current = pending.length;
       },
       (err) => setError(err.message)
     );
