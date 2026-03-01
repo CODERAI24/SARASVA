@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  X, Library, ClipboardList, Calendar, CalendarDays, Plus,
+  X, Library, ClipboardList, Calendar, CalendarDays, Plus, LogOut, User,
 } from "lucide-react";
+import { useAuth }     from "@/hooks/useAuth.js";
 import { useSubjects } from "@/hooks/useSubjects.js";
-import { useExams } from "@/hooks/useExams.js";
+import { useExams }    from "@/hooks/useExams.js";
 
 /**
  * Slide-in drawer triggered by the hamburger icon in the mobile header.
- * Provides: Add Subject, Add New Exam, Task Calendar, Manage Subjects, Schedule.
+ * Provides: Add Subject, Add New Exam, Task Calendar, Manage Subjects, Schedule,
+ * Profile & Settings, Log Out.
  */
 export default function SideDrawer({ open, onClose }) {
   const [addingSubject, setAddingSubject] = useState(false);
@@ -214,6 +216,31 @@ export default function SideDrawer({ open, onClose }) {
               <CalendarDays size={15} className="text-primary" />
             </div>
             <span className="text-sm font-medium">Schedule / Timetable</span>
+          </button>
+
+          {/* ── Spacer ───────────────────────────────────── */}
+          <div className="flex-1" />
+
+          {/* ── Profile & Settings ───────────────────────── */}
+          <button
+            onClick={() => goTo("/profile")}
+            className="flex w-full items-center gap-3 rounded-xl border border-border bg-background p-3 hover:bg-accent transition-colors"
+          >
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+              <User size={15} className="text-primary" />
+            </div>
+            <span className="text-sm font-medium">Profile &amp; Settings</span>
+          </button>
+
+          {/* ── Log Out ──────────────────────────────────── */}
+          <button
+            onClick={async () => { await logout(); onClose(); }}
+            className="flex w-full items-center gap-3 rounded-xl border border-destructive/20 bg-destructive/5 p-3 hover:bg-destructive/10 transition-colors"
+          >
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-destructive/10">
+              <LogOut size={15} className="text-destructive" />
+            </div>
+            <span className="text-sm font-medium text-destructive">Log Out</span>
           </button>
 
         </div>
