@@ -3,16 +3,19 @@
     "rules": "firestore.rules"
   },
   "hosting": {
-    "public": "sarasva-frontend/dist",
+    "public": "firebase-public",
     "ignore": [
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
     ],
+    "redirects": [
+      { "source": "/", "destination": "/SARASVA/", "type": 301 }
+    ],
     "rewrites": [
       {
-        "source": "**",
-        "destination": "/index.html"
+        "source": "/SARASVA/**",
+        "destination": "/SARASVA/index.html"
       }
     ]
   }
