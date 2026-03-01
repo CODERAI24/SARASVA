@@ -44,14 +44,15 @@ export const groupsService = {
     if (snap.data()?.memberUids?.includes(toUid)) {
       throw new Error("Already a member of this group.");
     }
+    // Filter by fromUid so Firestore security rules can validate the result set
     const dup = await getDocs(query(
       groupInvites(),
+      where("fromUid", "==", fromUid),
       where("groupId", "==", groupId)
     ));
-    if (dup.docs.some((d) => {
-      const data = d.data();
-      return data.toUid === toUid && data.status === "pending";
-    })) throw new Error("Invite already sent.");
+    if (dup.docs.some((d) => d.data().toUid === toUid && d.data().status === "pending")) {
+      throw new Error("Invite already sent.");
+    }
 
     await addDoc(groupInvites(), {
       groupId, groupName, fromUid, fromName, toUid, toName,

@@ -9,7 +9,8 @@ import { userDoc } from "@/firebase/config.js";
 export const DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
 export function todayString() {
-  return new Date().toISOString().split("T")[0];
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
 /* ── Pure math (same logic as attendanceUtils.js / backend) ─────── */

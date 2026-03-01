@@ -592,8 +592,8 @@ function ExamCard({
 
       {/* Body */}
       <div
-        className="overflow-hidden transition-all duration-300 ease-in-out"
-        style={{ maxHeight: open ? "9999px" : "0px" }}
+        className="overflow-hidden transition-all duration-500 ease-in-out"
+        style={{ maxHeight: open ? "3000px" : "0px" }}
       >
         <div className="space-y-4 border-t border-border px-4 pb-4 pt-3">
 
@@ -697,7 +697,7 @@ export default function ExamsPage() {
   async function handleAddRepeatReminder(subjectName, days) {
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + days);
-    const dueDateStr = dueDate.toISOString().split("T")[0];
+    const dueDateStr = `${dueDate.getFullYear()}-${String(dueDate.getMonth() + 1).padStart(2, "0")}-${String(dueDate.getDate()).padStart(2, "0")}`;
     try {
       await createTask({
         title:       `Revise: ${subjectName}`,
