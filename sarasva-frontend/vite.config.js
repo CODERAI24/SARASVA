@@ -35,6 +35,12 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        // Force new SW to activate immediately — no waiting for tabs to close
+        skipWaiting: true,
+        clientsClaim: true,
+        // Re-check for updates every time the app is opened
+        navigateFallback: "/SARASVA/index.html",
+        navigateFallbackDenylist: [/^\/SARASVA\/assets\//],
       },
     }),
   ],
