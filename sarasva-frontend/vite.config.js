@@ -14,8 +14,8 @@ export default defineConfig({
         name: "Sarasva",
         short_name: "Sarasva",
         description: "Academic tracker — attendance, exams, timetable & tasks",
-        theme_color: "#0ea5e9",
-        background_color: "#09090b",
+        theme_color: "#6366f1",
+        background_color: "#0f0e17",
         display: "standalone",
         start_url: "/SARASVA/",
         scope: "/SARASVA/",
@@ -34,7 +34,7 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2}"],
         // Force new SW to activate immediately — no waiting for tabs to close
         skipWaiting: true,
         clientsClaim: true,
