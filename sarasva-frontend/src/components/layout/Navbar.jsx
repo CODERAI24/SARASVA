@@ -36,62 +36,74 @@ export default function Navbar() {
   }
 
   return (
-    <aside className="hidden lg:flex w-56 flex-shrink-0 flex-col border-r border-border bg-card px-3 py-6">
+    <aside className="hidden lg:flex w-56 flex-shrink-0 flex-col border-r border-border bg-card px-3 py-5">
+
       {/* Brand */}
-      <div className="mb-8 px-3">
-        <h1 className="text-xl font-bold tracking-tight">Sarasva</h1>
-        <p className="mt-0.5 truncate text-xs text-muted-foreground">{user?.name}</p>
+      <div className="mb-6 px-2 flex items-center gap-2.5">
+        <div className="relative shrink-0">
+          <div className="absolute inset-0 rounded-xl bg-primary/25 blur-md" />
+          <img
+            src="/SARASVA/logo.png"
+            alt="Sarasva"
+            className="relative h-9 w-9 rounded-xl object-contain shadow-sm"
+            onError={(e) => { e.target.style.display = "none"; }}
+          />
+        </div>
+        <div>
+          <h1 className="text-base font-bold tracking-tight text-gradient">Sarasva</h1>
+          <p className="truncate text-[11px] text-muted-foreground leading-tight max-w-[108px]">{user?.name}</p>
+        </div>
       </div>
 
       {/* Navigation links */}
-      <nav className="flex flex-col gap-1">
+      <nav className="flex flex-col gap-0.5">
         {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
             className={({ isActive }) =>
               cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
                 isActive
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  ? "gradient-primary text-white shadow-sm"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
               )
             }
           >
-            <Icon size={16} />
+            <Icon size={15} />
             {label}
           </NavLink>
         ))}
       </nav>
 
-      {/* Admin link — only for admins */}
+      {/* Admin link */}
       {user?.role === "admin" && (
         <NavLink
           to="/admin"
           className={({ isActive }) =>
             cn(
-              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              "mt-0.5 flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
               isActive
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                ? "gradient-primary text-white shadow-sm"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground"
             )
           }
         >
-          <Sparkles size={16} />
+          <Sparkles size={15} />
           Admin
         </NavLink>
       )}
 
-      {/* Profile + Logout at the bottom */}
-      <div className="mt-auto flex flex-col gap-1">
+      {/* Profile + Logout */}
+      <div className="mt-auto flex flex-col gap-0.5 border-t border-border pt-3">
         <NavLink
           to="/profile"
           className={({ isActive }) =>
             cn(
-              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
               isActive
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                ? "gradient-primary text-white shadow-sm"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground"
             )
           }
         >
@@ -101,9 +113,9 @@ export default function Navbar() {
 
         <button
           onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive hover:text-destructive-foreground"
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-all duration-150 hover:bg-destructive/10 hover:text-destructive"
         >
-          <LogOut size={16} />
+          <LogOut size={15} />
           Logout
         </button>
       </div>

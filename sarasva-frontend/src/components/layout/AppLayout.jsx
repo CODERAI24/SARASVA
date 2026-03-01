@@ -26,8 +26,8 @@ export default function AppLayout() {
       <div className="flex flex-1 flex-col min-w-0">
 
         {/* Mobile/tablet top bar — hidden on desktop */}
-        <header className="flex lg:hidden shrink-0 items-center justify-between border-b border-border bg-card px-4 py-3">
-          <div className="flex items-center gap-3">
+        <header className="flex lg:hidden shrink-0 items-center justify-between border-b border-border bg-card/95 backdrop-blur-sm px-4 py-3">
+          <div className="flex items-center gap-2.5">
             {/* Hamburger — opens SideDrawer */}
             <button
               onClick={() => setDrawerOpen(true)}
@@ -36,7 +36,15 @@ export default function AppLayout() {
             >
               <Menu size={20} />
             </button>
-            <span className="text-lg font-bold tracking-tight">Sarasva</span>
+            <div className="flex items-center gap-2">
+              <img
+                src="/SARASVA/logo.png"
+                alt=""
+                className="h-7 w-7 rounded-lg object-contain"
+                onError={(e) => { e.target.style.display = "none"; }}
+              />
+              <span className="text-base font-bold tracking-tight text-gradient">Sarasva</span>
+            </div>
           </div>
           <Link to="/profile" title="Profile">
             <UserAvatar user={user} size="sm" />
