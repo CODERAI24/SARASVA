@@ -206,16 +206,16 @@ export default function FriendDetailPage() {
 
           {/* Two-step remove */}
           {removePending ? (
-            <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex items-center gap-1 shrink-0">
               <button
                 onClick={handleRemoveFriend}
-                className="rounded-lg bg-destructive px-2.5 py-1.5 text-xs font-medium text-destructive-foreground"
+                className="rounded-md bg-destructive px-2 py-1 text-[11px] font-medium text-destructive-foreground"
               >
-                Confirm
+                Confirm remove
               </button>
               <button
                 onClick={() => setRemovePending(false)}
-                className="rounded-lg border border-border px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted transition-colors"
+                className="rounded-md border border-border px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted transition-colors"
               >
                 Cancel
               </button>
@@ -224,9 +224,9 @@ export default function FriendDetailPage() {
             <button
               onClick={handleRemoveFriend}
               title="Remove friend"
-              className="rounded-lg border border-destructive/30 p-1.5 text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+              className="rounded-md border border-border p-1 text-muted-foreground/50 hover:border-destructive/40 hover:text-destructive hover:bg-destructive/5 transition-colors shrink-0"
             >
-              <UserMinus size={15} />
+              <UserMinus size={12} />
             </button>
           )}
         </div>
