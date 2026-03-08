@@ -34,13 +34,24 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2}"],
-        // Force new SW to activate immediately — no waiting for tabs to close
+        // Do NOT precache HTML — let NetworkFirst handle it so updates are instant
+        globPatterns: ["**/*.{js,css,ico,png,svg,woff,woff2}"],
         skipWaiting: true,
         clientsClaim: true,
-        // Re-check for updates every time the app is opened
+        cleanupOutdatedCaches: true,
         navigateFallback: "/SARASVA/index.html",
         navigateFallbackDenylist: [/^\/SARASVA\/assets\//],
+        runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.mode === "navigate",
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "html-cache",
+              networkTimeoutSeconds: 3,
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
       },
     }),
   ],
