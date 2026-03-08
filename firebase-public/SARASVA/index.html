@@ -4,6 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sarasva</title>
+    <!-- Force-update: unregister stale SWs and reload once to pick up new version -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(regs) {
+          regs.forEach(function(reg) {
+            reg.update();
+          });
+        });
+        navigator.serviceWorker.addEventListener('controllerchange', function() {
+          window.location.reload();
+        });
+      }
+    </script>
     <meta name="description" content="Academic tracker — attendance, exams, timetable &amp; tasks" />
     <meta name="theme-color" content="#6366f1" />
     <link rel="icon" href="/SARASVA/favicon.ico" sizes="any" />
