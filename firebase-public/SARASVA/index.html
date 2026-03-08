@@ -4,18 +4,25 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sarasva</title>
-    <!-- Force-update: unregister stale SWs and reload once to pick up new version -->
+    <!-- Force-update: kill old SW and reload so new version loads from network -->
     <script>
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function(regs) {
-          regs.forEach(function(reg) {
-            reg.update();
+      (function() {
+        var BUST_KEY = 'sw_bust_v6';
+        if ('serviceWorker' in navigator && !sessionStorage.getItem(BUST_KEY)) {
+          sessionStorage.setItem(BUST_KEY, '1');
+          navigator.serviceWorker.getRegistrations().then(function(regs) {
+            if (regs.length === 0) return;
+            Promise.all(regs.map(function(r) { return r.unregister(); }))
+              .then(function() { window.location.reload(true); });
           });
-        });
-        navigator.serviceWorker.addEventListener('controllerchange', function() {
-          window.location.reload();
-        });
-      }
+        }
+        // After bust: listen for future controller changes and reload
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.addEventListener('controllerchange', function() {
+            window.location.reload();
+          });
+        }
+      })();
     </script>
     <meta name="description" content="Academic tracker — attendance, exams, timetable &amp; tasks" />
     <meta name="theme-color" content="#6366f1" />
