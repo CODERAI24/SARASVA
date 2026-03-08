@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  X, Library, ClipboardList, Calendar, CalendarDays, Plus, LogOut, User,
+  X, Library, ClipboardList, Calendar, CalendarDays, Plus, LogOut, Settings2,
 } from "lucide-react";
 import { useAuth }     from "@/hooks/useAuth.js";
 import { useSubjects } from "@/hooks/useSubjects.js";
@@ -221,15 +221,15 @@ export default function SideDrawer({ open, onClose }) {
           {/* ── Spacer ───────────────────────────────────── */}
           <div className="flex-1" />
 
-          {/* ── Profile & Settings ───────────────────────── */}
+          {/* ── Settings ───────────────────────── */}
           <button
             onClick={() => goTo("/profile")}
             className="flex w-full items-center gap-3 rounded-xl border border-border bg-background p-3 hover:bg-accent transition-colors"
           >
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-              <User size={15} className="text-primary" />
+              <Settings2 size={15} className="text-primary" />
             </div>
-            <span className="text-sm font-medium">Profile &amp; Settings</span>
+            <span className="text-sm font-medium">Settings</span>
           </button>
 
           {/* ── Log Out ──────────────────────────────────── */}

@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate, Link } from "react-router-dom";
 import {
   LayoutDashboard,
   CalendarCheck,
@@ -10,6 +10,7 @@ import {
   Calendar,
   Users2,
   Sparkles,
+  Settings2,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth.js";
 import { cn } from "@/lib/utils.js";
@@ -38,14 +39,14 @@ export default function Navbar() {
   return (
     <aside className="hidden lg:flex w-56 flex-shrink-0 flex-col border-r border-border bg-card px-3 py-5">
 
-      {/* Brand */}
-      <div className="mb-6 px-2 flex items-center gap-2.5">
+      {/* Brand — clickable → Dashboard */}
+      <Link to="/dashboard" className="mb-6 px-2 flex items-center gap-2.5 group">
         <div className="relative shrink-0">
           <div className="absolute inset-0 rounded-xl bg-primary/25 blur-md" />
           <img
             src="/SARASVA/logo.png"
             alt="Sarasva"
-            className="relative h-9 w-9 rounded-xl object-contain shadow-sm"
+            className="relative h-9 w-9 rounded-xl object-contain shadow-sm group-hover:scale-105 transition-transform"
             onError={(e) => { e.target.style.display = "none"; }}
           />
         </div>
@@ -53,7 +54,7 @@ export default function Navbar() {
           <h1 className="text-base font-bold tracking-tight text-gradient">Sarasva</h1>
           <p className="truncate text-[11px] text-muted-foreground leading-tight max-w-[108px]">{user?.name}</p>
         </div>
-      </div>
+      </Link>
 
       {/* Navigation links */}
       <nav className="flex flex-col gap-0.5">
@@ -94,7 +95,7 @@ export default function Navbar() {
         </NavLink>
       )}
 
-      {/* Profile + Logout */}
+      {/* Settings + Logout */}
       <div className="mt-auto flex flex-col gap-0.5 border-t border-border pt-3">
         <NavLink
           to="/profile"
@@ -107,8 +108,8 @@ export default function Navbar() {
             )
           }
         >
-          <UserAvatar user={user} size="xs" />
-          Profile
+          <Settings2 size={15} />
+          Settings
         </NavLink>
 
         <button

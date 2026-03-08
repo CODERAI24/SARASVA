@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth.js";
 import { authService } from "@/services/auth.service.js";
 import { notificationsService } from "@/services/notifications.service.js";
+import { sessionsService, getSessionId } from "@/services/sessions.service.js";
 import { auth } from "@/firebase/config.js";
 import UserAvatar, { AVATAR_COLORS, AVATAR_EMOJIS } from "@/components/UserAvatar.jsx";
+import { useOnboarding } from "@/components/OnboardingGuide.jsx";
 import {
   User, Mail, BookOpen, Hash, Settings2, Check, KeyRound,
   BellRing, BellOff, Building2, Pencil, X, ChevronDown, ChevronUp,
-  Lock, AtSign, Palette,
+  Lock, AtSign, Palette, HelpCircle, Monitor, Smartphone, LogOut, ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils.js";
 
@@ -59,8 +61,129 @@ function Accordion({ title, icon: Icon, children, defaultOpen = false }) {
   );
 }
 
+/* ── Helpers for session display ──────────────────────────────────── */
+function timeAgo(ts) {
+  if (!ts) return "Just now";
+  const date = ts.toDate ? ts.toDate() : new Date(ts);
+  const diff  = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (diff < 60)    return "Just now";
+  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
+function DeviceIcon({ type, size = 15 }) {
+  return type === "mobile"
+    ? <Smartphone size={size} className="text-muted-foreground" />
+    : <Monitor    size={size} className="text-muted-foreground" />;
+}
+
+/* ── Active Sessions accordion content ───────────────────────────── */
+function ActiveSessions({ uid }) {
+  const [sessions,  setSessions]  = useState([]);
+  const [removing,  setRemoving]  = useState(null); // sessionId being removed
+  const [clearingAll, setClearingAll] = useState(false);
+  const currentId = getSessionId();
+
+  useEffect(() => {
+    if (!uid) return;
+    return sessionsService.listenToAll(uid, (list) => {
+      // Sort: current first, then by lastActive descending
+      const sorted = [...list].sort((a, b) => {
+        if (a.id === currentId) return -1;
+        if (b.id === currentId) return  1;
+        const ta = a.lastActive?.toDate?.() ?? new Date(0);
+        const tb = b.lastActive?.toDate?.() ?? new Date(0);
+        return tb - ta;
+      });
+      setSessions(sorted);
+    });
+  }, [uid]);
+
+  async function handleRemove(sessionId) {
+    setRemoving(sessionId);
+    try { await sessionsService.remove(uid, sessionId); }
+    finally { setRemoving(null); }
+  }
+
+  async function handleRemoveAll() {
+    setClearingAll(true);
+    try { await sessionsService.removeOthers(uid); }
+    finally { setClearingAll(false); }
+  }
+
+  const others = sessions.filter((s) => s.id !== currentId);
+
+  return (
+    <div className="space-y-3">
+      {sessions.length === 0 && (
+        <p className="text-sm text-muted-foreground">Loading sessions…</p>
+      )}
+
+      <div className="space-y-2">
+        {sessions.map((s) => {
+          const isCurrent = s.id === currentId;
+          const dev = s.device ?? {};
+          return (
+            <div key={s.id} className={cn(
+              "flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors",
+              isCurrent ? "border-primary/30 bg-primary/5" : "border-border bg-background"
+            )}>
+              <DeviceIcon type={dev.type} size={18} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-medium">
+                    {dev.browser ?? "Unknown browser"} · {dev.os ?? "Unknown OS"}
+                  </span>
+                  {isCurrent && (
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                      This device
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {isCurrent ? "Active now" : `Last active ${timeAgo(s.lastActive)}`}
+                </p>
+              </div>
+              {!isCurrent && (
+                <button
+                  onClick={() => handleRemove(s.id)}
+                  disabled={removing === s.id}
+                  className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-40 transition-colors"
+                  title="Sign out this device"
+                >
+                  <LogOut size={13} />
+                  {removing === s.id ? "…" : "Sign out"}
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {others.length > 1 && (
+        <button
+          onClick={handleRemoveAll}
+          disabled={clearingAll}
+          className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-destructive/30 py-2.5 text-sm font-medium text-destructive hover:bg-destructive/5 disabled:opacity-40 transition-colors"
+        >
+          <LogOut size={14} />
+          {clearingAll ? "Signing out…" : `Sign out all other devices (${others.length})`}
+        </button>
+      )}
+
+      <p className="text-[11px] text-muted-foreground text-center">
+        Signing out a device removes its session immediately.
+      </p>
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────── */
+
 export default function ProfilePage() {
   const { user, refreshUser } = useAuth();
+  const { startGuide } = useOnboarding();
 
   const providers = auth.currentUser?.providerData.map((p) => p.providerId) ?? [];
   const hasPassword = providers.includes("password");
@@ -70,6 +193,7 @@ export default function ProfilePage() {
   const [avatarEmoji,   setAvatarEmoji]   = useState(user?.avatarEmoji ?? null);
   const [avatarSaving,  setAvatarSaving]  = useState(false);
   const [avatarSuccess, setAvatarSuccess] = useState(false);
+  const [editingAvatar, setEditingAvatar] = useState(false);
 
   async function handleSaveAvatar() {
     setAvatarSaving(true);
@@ -207,68 +331,94 @@ export default function ProfilePage() {
     <div className="mx-auto max-w-xl space-y-5">
 
       <div>
-        <h2 className="text-2xl font-bold">Profile & Settings</h2>
+        <h2 className="text-2xl font-bold flex items-center gap-2"><Settings2 size={22} /> Settings</h2>
         <p className="text-sm text-muted-foreground">Manage your identity, security, and preferences.</p>
       </div>
 
       {/* ── Avatar ───────────────────────────────────────────────────── */}
       <Accordion title="Profile Picture" icon={Palette} defaultOpen>
-        <div className="flex items-center gap-5">
-          <UserAvatar user={{ name: user?.name, avatarColor, avatarEmoji }} size="xl" />
-          <div>
-            <p className="text-sm font-medium">{user?.name}</p>
-            <p className="text-xs text-muted-foreground">{user?.email}</p>
-          </div>
-        </div>
-
-        <div>
-          <p className="mb-2 text-xs font-medium text-muted-foreground">Style — pick an emoji or use initials</p>
-          <div className="flex flex-wrap gap-2">
-            {AVATAR_EMOJIS.map((em, i) => (
-              <button
-                key={i}
-                onClick={() => setAvatarEmoji(em)}
-                className={cn(
-                  "h-10 w-10 rounded-full flex items-center justify-center text-lg transition-all border-2",
-                  avatarEmoji === em ? "border-primary scale-110 shadow-md" : "border-transparent bg-muted hover:scale-105"
-                )}
-                style={em === null ? { background: avatarColor } : {}}
-                title={em === null ? "Initials" : em}
-              >
-                {em === null
-                  ? <span className="text-white text-[11px] font-bold leading-none">
-                      {(user?.name ?? "?").split(" ").filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase()}
-                    </span>
-                  : em}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {!avatarEmoji && (
-          <div>
-            <p className="mb-2 text-xs font-medium text-muted-foreground">Color</p>
-            <div className="flex flex-wrap gap-2">
-              {AVATAR_COLORS.map(({ hex, label }) => (
-                <button
-                  key={hex}
-                  onClick={() => setAvatarColor(hex)}
-                  title={label}
-                  className={cn("h-8 w-8 rounded-full transition-all border-2", avatarColor === hex ? "border-foreground scale-110" : "border-transparent hover:scale-105")}
-                  style={{ background: hex }}
-                />
-              ))}
+        {/* Display: avatar + name always visible */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <UserAvatar user={{ name: user?.name, avatarColor, avatarEmoji }} size="xl" />
+            <div>
+              <p className="text-base font-semibold">{user?.name}</p>
+              <p className="text-xs text-muted-foreground">{user?.email}</p>
             </div>
           </div>
-        )}
-
-        <div className="flex items-center gap-3">
-          <button onClick={handleSaveAvatar} disabled={avatarSaving}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity">
-            {avatarSaving ? "Saving…" : "Save"}
-          </button>
-          {avatarSuccess && <span className="flex items-center gap-1 text-sm text-green-600"><Check size={14} /> Saved</span>}
+          {!editingAvatar && (
+            <button
+              onClick={() => setEditingAvatar(true)}
+              className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            >
+              <Pencil size={12} /> Edit Avatar
+            </button>
+          )}
         </div>
+
+        {/* Edit section — hidden until Edit is tapped */}
+        {editingAvatar && (
+          <>
+            <div>
+              <p className="mb-2 text-xs font-medium text-muted-foreground">Style — pick an emoji or use initials</p>
+              <div className="flex flex-wrap gap-2">
+                {AVATAR_EMOJIS.map((em, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setAvatarEmoji(em)}
+                    className={cn(
+                      "h-10 w-10 rounded-full flex items-center justify-center text-lg transition-all border-2",
+                      avatarEmoji === em ? "border-primary scale-110 shadow-md" : "border-transparent bg-muted hover:scale-105"
+                    )}
+                    style={em === null ? { background: avatarColor } : {}}
+                    title={em === null ? "Initials" : em}
+                  >
+                    {em === null
+                      ? <span className="text-white text-[11px] font-bold leading-none">
+                          {(user?.name ?? "?").split(" ").filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase()}
+                        </span>
+                      : em}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {!avatarEmoji && (
+              <div>
+                <p className="mb-2 text-xs font-medium text-muted-foreground">Color</p>
+                <div className="flex flex-wrap gap-2">
+                  {AVATAR_COLORS.map(({ hex, label }) => (
+                    <button
+                      key={hex}
+                      onClick={() => setAvatarColor(hex)}
+                      title={label}
+                      className={cn("h-8 w-8 rounded-full transition-all border-2", avatarColor === hex ? "border-foreground scale-110" : "border-transparent hover:scale-105")}
+                      style={{ background: hex }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={async () => { await handleSaveAvatar(); setEditingAvatar(false); }}
+                disabled={avatarSaving}
+                className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity"
+              >
+                {avatarSaving ? "Saving…" : "Save"}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setEditingAvatar(false); setAvatarColor(user?.avatarColor ?? "#6366f1"); setAvatarEmoji(user?.avatarEmoji ?? null); }}
+                className="text-sm text-muted-foreground hover:text-foreground"
+              >
+                Cancel
+              </button>
+              {avatarSuccess && <span className="flex items-center gap-1 text-sm text-green-600"><Check size={14} /> Saved</span>}
+            </div>
+          </>
+        )}
       </Accordion>
 
       {/* ── Account & Security ────────────────────────────────────────── */}
@@ -440,6 +590,20 @@ export default function ProfilePage() {
             </div>
           ))}
         </div>
+
+        {/* App guide shortcut */}
+        <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 flex items-center justify-between gap-3">
+          <div className="space-y-0.5">
+            <p className="text-sm font-medium">App Guide</p>
+            <p className="text-xs text-muted-foreground">Revisit the step-by-step walkthrough of all features.</p>
+          </div>
+          <button
+            onClick={startGuide}
+            className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs font-semibold text-foreground hover:bg-accent transition-colors shrink-0"
+          >
+            <HelpCircle size={13} /> View Guide
+          </button>
+        </div>
       </Accordion>
 
       {/* ── Notifications ─────────────────────────────────────────────── */}
@@ -474,6 +638,11 @@ export default function ProfilePage() {
             <Toggle on={emailNotif} disabled={notifSaving} onChange={handleEmailNotifToggle} />
           </div>
         </div>
+      </Accordion>
+
+      {/* ── Active Sessions ────────────────────────────────────────────── */}
+      <Accordion title="Active Sessions" icon={ShieldCheck}>
+        <ActiveSessions uid={user?.id} />
       </Accordion>
     </div>
   );
