@@ -325,15 +325,15 @@ function ExamSubjectBlock({
 
 /* ── Exam card ──────────────────────────────────────────────────────── */
 function ExamCard({
-  exam, allSubjects, onArchive, onAddSubject, onRemoveSubject,
+  exam, allSubjects, onArchive, onAddSubject, onAddMultipleSubjects, onRemoveSubject,
   onAddChapter, onUpdateChapter, onDeleteChapter,
   onMoveSubject, onSetDueDate, onUpdate, onAddRepeatReminder, onSetSubjectNotes,
 }) {
-  const [open,       setOpen]       = useState(false);
-  const [subjectSel, setSubjectSel] = useState("");
-  const [editHeader, setEditHeader] = useState(false);
-  const [editName,   setEditName]   = useState(exam.name);
-  const [editDate,   setEditDate]   = useState(exam.examDate ?? "");
+  const [open,        setOpen]        = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [editHeader,  setEditHeader]  = useState(false);
+  const [editName,    setEditName]    = useState(exam.name);
+  const [editDate,    setEditDate]    = useState(exam.examDate ?? "");
 
   const addedIds  = exam.subjects.map((s) => s.subjectId);
   const available = allSubjects.filter((s) => !addedIds.includes(s.id));
@@ -342,11 +342,21 @@ function ExamCard({
     ? Math.ceil((new Date(exam.examDate + "T12:00:00") - new Date()) / 86400000)
     : null;
 
-  function handleAddSubject() {
-    if (!subjectSel) return;
-    const subject = allSubjects.find((s) => s.id === subjectSel);
-    onAddSubject(exam.id, subjectSel, subject?.chapters ?? []);
-    setSubjectSel("");
+  function toggleSubject(id) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function handleAddSelected() {
+    if (!selectedIds.size) return;
+    const toAdd = available
+      .filter((s) => selectedIds.has(s.id))
+      .map((s) => ({ subjectId: s.id, chapters: s.chapters ?? [] }));
+    onAddMultipleSubjects(exam.id, toAdd);
+    setSelectedIds(new Set());
   }
 
   function saveHeader() {
@@ -448,27 +458,55 @@ function ExamCard({
             </div>
           )}
 
-          {/* Add subject */}
+          {/* Add subjects — multi-select */}
           {available.length > 0 && (
-            <div className="space-y-1">
-              <div className="flex gap-2">
-                <select value={subjectSel} onChange={(e) => setSubjectSel(e.target.value)}
-                  className="flex-1 rounded-md border border-input bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring">
-                  <option value="">— Add a subject —</option>
-                  {available.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}{(s.chapters ?? []).length > 0 ? ` (${s.chapters.length} chapters)` : ""}
-                    </option>
-                  ))}
-                </select>
-                <button onClick={handleAddSubject} disabled={!subjectSel}
-                  className="flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-40 transition-opacity">
-                  <Plus size={13} /> Add
-                </button>
+            <div className="space-y-2 rounded-lg border border-dashed border-border p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Add Subjects
+              </p>
+              <div className="max-h-44 overflow-y-auto space-y-0.5">
+                {available.map((s) => (
+                  <label key={s.id}
+                    className="flex items-center gap-2.5 cursor-pointer rounded-md px-2 py-1.5 hover:bg-accent transition-colors"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(s.id)}
+                      onChange={() => toggleSubject(s.id)}
+                      className="h-3.5 w-3.5 rounded border-input accent-primary cursor-pointer"
+                    />
+                    <span className="flex-1 text-sm">{s.name}</span>
+                    {(s.chapters ?? []).length > 0 && (
+                      <span className="text-[10px] text-muted-foreground">
+                        {s.chapters.length} ch
+                      </span>
+                    )}
+                  </label>
+                ))}
               </div>
-              {subjectSel && (allSubjects.find((s) => s.id === subjectSel)?.chapters ?? []).length > 0 && (
-                <p className="text-xs text-primary">Chapters will be auto-imported.</p>
-              )}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleAddSelected}
+                  disabled={!selectedIds.size}
+                  className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-40 transition-opacity"
+                >
+                  <Plus size={13} />
+                  Add{selectedIds.size > 0 ? ` ${selectedIds.size}` : ""} Subject{selectedIds.size !== 1 ? "s" : ""}
+                </button>
+                {selectedIds.size > 0 && (
+                  <button
+                    onClick={() => setSelectedIds(new Set())}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Clear
+                  </button>
+                )}
+                {selectedIds.size > 0 && (
+                  <span className="text-[10px] text-primary ml-auto">
+                    Chapters auto-imported
+                  </span>
+                )}
+              </div>
             </div>
           )}
 
@@ -503,7 +541,7 @@ function ExamCard({
 export default function ExamsPage() {
   const {
     exams, create, archive, update,
-    addSubject, removeSubject, moveSubject, setSubjectDueDate, setSubjectNotes,
+    addSubject, addMultipleSubjects, removeSubject, moveSubject, setSubjectDueDate, setSubjectNotes,
     addChapter, updateChapter, deleteChapter,
   } = useExams();
   const { subjects }           = useSubjects({ archived: false });
@@ -600,6 +638,7 @@ export default function ExamsPage() {
               onArchive={archive}
               onUpdate={(id, patch) => update(id, patch)}
               onAddSubject={addSubject}
+              onAddMultipleSubjects={addMultipleSubjects}
               onRemoveSubject={removeSubject}
               onAddChapter={addChapter}
               onUpdateChapter={updateChapter}

@@ -72,6 +72,33 @@ export function useExams() {
     } catch (err) { setError(err.message); }
   }, [user, exams]);
 
+  /** Add multiple subjects at once in a single write. subjectList: [{ subjectId, chapters }] */
+  const addMultipleSubjects = useCallback(async (examId, subjectList) => {
+    if (!user || !subjectList.length) return;
+    try {
+      const exam = exams.find((e) => e.id === examId);
+      if (!exam) return;
+      const existingIds = new Set(exam.subjects.map((s) => s.subjectId));
+      const newEntries = subjectList
+        .filter((item) => !existingIds.has(item.subjectId))
+        .map((item) => ({
+          subjectId: item.subjectId,
+          dueDate:   null,
+          chapters:  (item.chapters ?? []).map((c) => ({
+            id:               c.id,
+            name:             c.name,
+            theoryProgress:   0,
+            practiceProgress: 0,
+            weightage:        1,
+          })),
+        }));
+      if (!newEntries.length) return;
+      await updateDoc(userDoc(user.id, "exams", examId), {
+        subjects: [...exam.subjects, ...newEntries],
+      });
+    } catch (err) { setError(err.message); }
+  }, [user, exams]);
+
   const removeSubject = useCallback(async (examId, subjectId) => {
     if (!user) return;
     try {
@@ -183,7 +210,7 @@ export function useExams() {
   return {
     exams, loading, error,
     create, update, archive,
-    addSubject, removeSubject, moveSubject, setSubjectDueDate, setSubjectNotes,
+    addSubject, addMultipleSubjects, removeSubject, moveSubject, setSubjectDueDate, setSubjectNotes,
     addChapter, updateChapter, deleteChapter,
   };
 }
