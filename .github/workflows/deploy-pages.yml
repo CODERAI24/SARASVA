@@ -35,6 +35,13 @@ jobs:
       - name: Build
         run: npm run build
         working-directory: sarasva-frontend
+        env:
+          VITE_FIREBASE_API_KEY: AIzaSyCe85WvMIdGqpB4fQ-5l4c46fikr-EwO5s
+          VITE_FIREBASE_AUTH_DOMAIN: sarasva-e25dd.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID: sarasva-e25dd
+          VITE_FIREBASE_STORAGE_BUCKET: sarasva-e25dd.firebasestorage.app
+          VITE_FIREBASE_MESSAGING_SENDER_ID: "1033167676784"
+          VITE_FIREBASE_APP_ID: "1:1033167676784:web:9134c434cc4716434ddbb5"
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
