@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth.js";
 
 import AppLayout      from "@/components/layout/AppLayout.jsx";
@@ -19,6 +20,40 @@ import GroupDetailPage     from "@/pages/ptp/GroupDetailPage.jsx";
 import FriendDetailPage    from "@/pages/ptp/FriendDetailPage.jsx";
 import AdminPage           from "@/pages/admin/AdminPage.jsx";
 
+function UpdateBanner() {
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    // Show banner when a new SW is waiting (about to take control)
+    navigator.serviceWorker.ready.then((reg) => {
+      if (reg.waiting) setShow(true);
+      reg.addEventListener("updatefound", () => {
+        const newWorker = reg.installing;
+        if (!newWorker) return;
+        newWorker.addEventListener("statechange", () => {
+          if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+            setShow(true);
+          }
+        });
+      });
+    });
+  }, []);
+
+  if (!show) return null;
+  return (
+    <div className="fixed bottom-20 lg:bottom-4 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 rounded-xl bg-primary px-4 py-3 shadow-2xl text-white text-sm font-medium">
+      <span>New update available!</span>
+      <button
+        onClick={() => window.location.reload()}
+        className="rounded-lg bg-white/20 hover:bg-white/30 px-3 py-1.5 text-xs font-bold transition-colors"
+      >
+        Tap to update
+      </button>
+    </div>
+  );
+}
+
 export default function App() {
   const { loading } = useAuth();
 
@@ -32,6 +67,8 @@ export default function App() {
   }
 
   return (
+    <>
+    <UpdateBanner />
     <Routes>
       {/* Public routes */}
       <Route path="/login"    element={<LoginPage />} />
@@ -59,5 +96,6 @@ export default function App() {
       {/* Catch-all */}
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
+    </>
   );
 }
