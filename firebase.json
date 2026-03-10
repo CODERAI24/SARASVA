@@ -3,7 +3,7 @@
     "rules": "firestore.rules"
   },
   "hosting": {
-    "public": "firebase-public",
+    "public": "sarasva-frontend/dist",
     "ignore": [
       "firebase.json",
       "**/.*",
@@ -11,43 +11,34 @@
     ],
     "headers": [
       {
-        "source": "/SARASVA/index.html",
+        "source": "/index.html",
         "headers": [
           { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
         ]
       },
       {
-        "source": "/SARASVA/manifest.webmanifest",
+        "source": "/manifest.webmanifest",
         "headers": [
           { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
         ]
       },
       {
-        "source": "/SARASVA/logo.png",
+        "source": "/sw.js",
         "headers": [
           { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
         ]
       },
       {
-        "source": "/SARASVA/sw.js",
-        "headers": [
-          { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
-        ]
-      },
-      {
-        "source": "/SARASVA/registerSW.js",
+        "source": "/registerSW.js",
         "headers": [
           { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
         ]
       }
     ],
-    "redirects": [
-      { "source": "/", "destination": "/SARASVA/", "type": 301 }
-    ],
     "rewrites": [
       {
-        "source": "/SARASVA/**",
-        "destination": "/SARASVA/index.html"
+        "source": "**",
+        "destination": "/index.html"
       }
     ]
   }
