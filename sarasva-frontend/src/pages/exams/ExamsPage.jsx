@@ -334,6 +334,7 @@ function ExamCard({
   const [editHeader,  setEditHeader]  = useState(false);
   const [editName,    setEditName]    = useState(exam.name);
   const [editDate,    setEditDate]    = useState(exam.examDate ?? "");
+  const [confirming,  setConfirming]  = useState(false);
 
   const addedIds  = exam.subjects.map((s) => s.subjectId);
   const available = allSubjects.filter((s) => !addedIds.includes(s.id));
@@ -428,10 +429,23 @@ function ExamCard({
               className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" title="Edit">
               <Pencil size={14} />
             </button>
-            <button onClick={() => { if (confirm("Archive this exam?")) onArchive(exam.id); }}
-              className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors" title="Archive">
-              <Trash2 size={15} />
-            </button>
+            {confirming ? (
+              <div className="flex items-center gap-1">
+                <button onClick={() => { onArchive(exam.id); setConfirming(false); }}
+                  className="rounded-md px-2.5 py-1.5 text-xs font-semibold bg-destructive text-destructive-foreground hover:opacity-90">
+                  Archive
+                </button>
+                <button onClick={() => setConfirming(false)}
+                  className="rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-accent">
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => setConfirming(true)}
+                className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors" title="Archive">
+                <Trash2 size={15} />
+              </button>
+            )}
             <button onClick={() => setOpen((p) => !p)} className="rounded-md p-1.5 text-muted-foreground hover:bg-accent transition-colors">
               {open ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
             </button>
@@ -439,8 +453,9 @@ function ExamCard({
         </div>
       )}
 
-      {/* Body — 99999px avoids height clipping with many subjects/chapters */}
-      <div className="overflow-hidden transition-all duration-500 ease-in-out" style={{ maxHeight: open ? "99999px" : "0px" }}>
+      {/* Body — CSS grid row trick gives smooth open/close without a fixed maxHeight */}
+      <div className="grid transition-all duration-300 ease-in-out" style={{ gridTemplateRows: open ? "1fr" : "0fr" }}>
+        <div className="overflow-hidden">
         <div className="space-y-4 border-t border-border px-4 pb-4 pt-3">
 
           {attention.length > 0 && (
@@ -531,6 +546,7 @@ function ExamCard({
                 />
               ))
           }
+        </div>
         </div>
       </div>
     </div>

@@ -108,6 +108,18 @@ export function useTimetable() {
     } catch (err) { setError(err.message); }
   }, [user, timetables]);
 
+  /** Replace a slot's fields in-place (keeps its id). */
+  const editSlot = useCallback(async (timetableId, slotId, patch) => {
+    if (!user) return;
+    try {
+      const tt = timetables.find((t) => t.id === timetableId);
+      if (!tt) return;
+      await updateDoc(userDoc(user.id, "timetables", timetableId), {
+        slots: (tt.slots ?? []).map((s) => s.id === slotId ? { ...s, ...patch } : s),
+      });
+    } catch (err) { setError(err.message); }
+  }, [user, timetables]);
+
   /** Import a shared timetable (from P2P) into the user's own timetable list. */
   const importTimetable = useCallback(async ({ name, slots = [] }) => {
     if (!user) return;
@@ -123,5 +135,5 @@ export function useTimetable() {
     } catch (err) { setError(err.message); }
   }, [user]);
 
-  return { timetables, loading, error, create, activate, archive, addSlot, deleteSlot, importTimetable };
+  return { timetables, loading, error, create, activate, archive, addSlot, deleteSlot, editSlot, importTimetable };
 }

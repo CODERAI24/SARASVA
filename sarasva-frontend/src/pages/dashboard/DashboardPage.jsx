@@ -229,6 +229,7 @@ const ATT_BTNS = [
   { key: "present",   label: "P", activeBg: "bg-emerald-500", activeRing: "ring-emerald-400" },
   { key: "absent",    label: "A", activeBg: "bg-rose-500",    activeRing: "ring-rose-400"    },
   { key: "cancelled", label: "C", activeBg: "bg-amber-400",   activeRing: "ring-amber-300"   },
+  { key: "extra",     label: "E", activeBg: "bg-blue-500",    activeRing: "ring-blue-400"    },
 ];
 
 /* ── Today attendance panel ───────────────────────────────────────── */
@@ -570,7 +571,7 @@ function TaskCleanupPrompt({ count, onAccept, onDismiss }) {
         <div className="flex gap-2 mt-2">
           <button onClick={onAccept}
             className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 transition-colors">
-            Delete old tasks
+            Archive old tasks
           </button>
           <button onClick={onDismiss}
             className="rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100 transition-colors">
@@ -623,9 +624,7 @@ export default function DashboardPage() {
 
   async function handleCleanupAccept() {
     setShowCleanup(false);
-    for (const id of staleTaskIds) {
-      try { await tasksService.archive(user.id, id); } catch {}
-    }
+    await Promise.all(staleTaskIds.map((id) => tasksService.archive(user.id, id).catch(() => {})));
     setStaleTaskIds([]);
   }
 

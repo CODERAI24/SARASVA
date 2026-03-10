@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth.js";
+import { WifiOff } from "lucide-react";
 
 import AppLayout      from "@/components/layout/AppLayout.jsx";
 import ProtectedRoute from "@/components/ProtectedRoute.jsx";
@@ -19,6 +20,29 @@ import PTPPage             from "@/pages/ptp/PTPPage.jsx";
 import GroupDetailPage     from "@/pages/ptp/GroupDetailPage.jsx";
 import FriendDetailPage    from "@/pages/ptp/FriendDetailPage.jsx";
 import AdminPage           from "@/pages/admin/AdminPage.jsx";
+
+/* ── Offline banner ────────────────────────────────────────────────── */
+function OfflineBanner() {
+  const [offline, setOffline] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    const goOffline = () => setOffline(true);
+    const goOnline  = () => setOffline(false);
+    window.addEventListener("offline", goOffline);
+    window.addEventListener("online",  goOnline);
+    return () => {
+      window.removeEventListener("offline", goOffline);
+      window.removeEventListener("online",  goOnline);
+    };
+  }, []);
+
+  if (!offline) return null;
+  return (
+    <div className="fixed top-0 left-0 right-0 z-[200] flex items-center justify-center gap-2 bg-amber-500 py-1.5 text-xs font-semibold text-white">
+      <WifiOff size={13} /> You're offline — showing cached data
+    </div>
+  );
+}
 
 function UpdateBanner() {
   const [show, setShow] = useState(false);
@@ -57,17 +81,22 @@ function UpdateBanner() {
 export default function App() {
   const { loading } = useAuth();
 
-  // Show nothing while checking stored token to avoid flash of wrong page
+  // Show a skeleton while Firebase resolves auth state
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <span className="text-muted-foreground text-sm">Loading...</span>
+      <div className="flex h-screen flex-col items-center justify-center gap-4">
+        <div className="h-10 w-10 rounded-full bg-muted animate-pulse" />
+        <div className="space-y-2 text-center">
+          <div className="h-3 w-32 rounded bg-muted animate-pulse mx-auto" />
+          <div className="h-2 w-20 rounded bg-muted animate-pulse mx-auto" />
+        </div>
       </div>
     );
   }
 
   return (
     <>
+    <OfflineBanner />
     <UpdateBanner />
     <Routes>
       {/* Public routes */}

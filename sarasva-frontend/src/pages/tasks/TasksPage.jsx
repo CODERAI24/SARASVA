@@ -1,11 +1,12 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { useTasks }  from "@/hooks/useTasks.js";
 import { useHabits } from "@/hooks/useHabits.js";
 import { cn }        from "@/lib/utils.js";
 import {
   Plus, Trash2, CheckSquare, Square, ChevronDown, ChevronUp,
   ListChecks, CheckCircle2, Circle, X, ChevronRight,
-  Repeat2, Check,
+  Repeat2, Check, Pencil, ArchiveRestore, Archive,
 } from "lucide-react";
 
 const PRIORITIES = ["low", "medium", "high"];
@@ -88,12 +89,89 @@ function SubtaskList({ task, onAdd, onToggle, onDelete }) {
   );
 }
 
+/* ── Inline edit form ─────────────────────────────────────────────── */
+function EditTaskForm({ task, onSave, onCancel }) {
+  const [form, setForm] = useState({
+    title:       task.title,
+    description: task.description ?? "",
+    dueDate:     task.dueDate ?? "",
+    priority:    task.priority ?? "medium",
+  });
+
+  function set(k, v) { setForm((p) => ({ ...p, [k]: v })); }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    if (!form.title.trim()) return;
+    onSave(task.id, {
+      title:       form.title.trim(),
+      description: form.description.trim(),
+      dueDate:     form.dueDate || null,
+      priority:    form.priority,
+    });
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="px-4 pb-3 space-y-2" onClick={(e) => e.stopPropagation()}>
+      <input
+        autoFocus
+        value={form.title}
+        onChange={(e) => set("title", e.target.value)}
+        placeholder="Task title"
+        className="w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring"
+      />
+      <input
+        value={form.description}
+        onChange={(e) => set("description", e.target.value)}
+        placeholder="Description (optional)"
+        className="w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring"
+      />
+      <div className="flex gap-2">
+        <div className="flex-1 space-y-0.5">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Due date</p>
+          <input
+            type="date" value={form.dueDate} onChange={(e) => set("dueDate", e.target.value)}
+            className="w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+        <div className="flex-1 space-y-0.5">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Priority</p>
+          <select
+            value={form.priority} onChange={(e) => set("priority", e.target.value)}
+            className="w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring"
+          >
+            {PRIORITIES.map((p) => (
+              <option key={p} value={p} className="capitalize">{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <button type="submit"
+          className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90">
+          <Check size={12} /> Save
+        </button>
+        <button type="button" onClick={onCancel}
+          className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted">
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
 /* ── Task row ─────────────────────────────────────────────────────── */
-function TaskRow({ task, onToggle, onArchive, onAddSubtask, onToggleSubtask, onDeleteSubtask }) {
+function TaskRow({ task, onToggle, onArchive, onUpdate, onAddSubtask, onToggleSubtask, onDeleteSubtask }) {
   const [expanded, setExpanded] = useState(false);
+  const [editing,  setEditing]  = useState(false);
   const overdue  = task.dueDate && !task.completed && new Date(task.dueDate) < new Date();
   const subtasks = task.subtasks || [];
   const doneSub  = subtasks.filter((s) => s.completed).length;
+
+  function handleSave(id, patch) {
+    onUpdate(id, patch);
+    setEditing(false);
+  }
 
   return (
     <div className={cn("transition-colors", task.completed && "opacity-55")}>
@@ -106,7 +184,7 @@ function TaskRow({ task, onToggle, onArchive, onAddSubtask, onToggleSubtask, onD
           {task.completed ? <CheckSquare size={17} className="text-primary" /> : <Square size={17} />}
         </button>
 
-        <div className="min-w-0 flex-1 cursor-pointer" onClick={() => setExpanded((p) => !p)}>
+        <div className="min-w-0 flex-1 cursor-pointer" onClick={() => !editing && setExpanded((p) => !p)}>
           <div className="flex items-center gap-1.5">
             <p className={cn("text-sm font-medium leading-snug", task.completed && "line-through text-muted-foreground")}>
               {task.title}
@@ -135,16 +213,29 @@ function TaskRow({ task, onToggle, onArchive, onAddSubtask, onToggleSubtask, onD
           </div>
         </div>
 
-        <button
-          onClick={() => onArchive(task.id)}
-          className="mt-0.5 shrink-0 rounded-lg p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-          title="Archive task"
-        >
-          <Trash2 size={13} />
-        </button>
+        <div className="mt-0.5 flex items-center gap-1 shrink-0">
+          <button
+            onClick={() => { setEditing((p) => !p); setExpanded(false); }}
+            className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            title="Edit task"
+          >
+            <Pencil size={13} />
+          </button>
+          <button
+            onClick={() => onArchive(task.id)}
+            className="rounded-lg p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+            title="Archive task"
+          >
+            <Trash2 size={13} />
+          </button>
+        </div>
       </div>
 
-      {expanded && (
+      {editing && (
+        <EditTaskForm task={task} onSave={handleSave} onCancel={() => setEditing(false)} />
+      )}
+
+      {expanded && !editing && (
         <div className="px-4 pb-2">
           <SubtaskList
             task={task}
@@ -160,9 +251,17 @@ function TaskRow({ task, onToggle, onArchive, onAddSubtask, onToggleSubtask, onD
 
 /* ── Add task form ────────────────────────────────────────────────── */
 function AddTaskForm({ onCreate }) {
+  const location = useLocation();
+  const prefillDate = location.state?.prefillDate ?? "";
+
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ title: "", description: "", dueDate: "", priority: "medium" });
+  const [form, setForm] = useState({ title: "", description: "", dueDate: prefillDate, priority: "medium" });
   const [err, setErr] = useState("");
+
+  // If prefillDate arrives after mount (navigation), update the form
+  useEffect(() => {
+    if (prefillDate) setForm((p) => ({ ...p, dueDate: prefillDate }));
+  }, [prefillDate]);
 
   function set(k, v) { setForm((p) => ({ ...p, [k]: v })); }
 
@@ -183,7 +282,7 @@ function AddTaskForm({ onCreate }) {
           className="flex w-full items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <div className="rounded-lg bg-primary/10 p-1.5"><Plus size={14} className="text-primary" /></div>
-          Add a new task…
+          {prefillDate ? `Add task for ${new Date(prefillDate + "T12:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" })}…` : "Add a new task…"}
         </button>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -238,7 +337,7 @@ function AddTaskForm({ onCreate }) {
 
 /* ── Daily Habits Section ─────────────────────────────────────────── */
 function HabitsSection() {
-  const { habits, todayLogs, addHabit, archiveHabit, toggleToday } = useHabits();
+  const { habits, todayLogs, streaks, addHabit, archiveHabit, toggleToday } = useHabits();
   const [inputVal,  setInputVal]  = useState("");
   const [showForm,  setShowForm]  = useState(false);
   const [showAll,   setShowAll]   = useState(true);
@@ -285,7 +384,8 @@ function HabitsSection() {
           ) : (
             <div className="divide-y divide-border">
               {habits.map((habit) => {
-                const done = !!(todayLogs[habit.id]);
+                const done   = !!(todayLogs[habit.id]);
+                const streak = streaks?.[habit.id] ?? 0;
                 return (
                   <div key={habit.id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
                     <button
@@ -302,6 +402,11 @@ function HabitsSection() {
                     <span className={cn("flex-1 text-sm", done && "line-through text-muted-foreground")}>
                       {habit.name}
                     </span>
+                    {streak > 0 && (
+                      <span className="shrink-0 flex items-center gap-0.5 text-[11px] font-semibold text-orange-500 bg-orange-50 rounded-full px-2 py-0.5">
+                        🔥 {streak}d
+                      </span>
+                    )}
                     <button
                       onClick={() => archiveHabit(habit.id)}
                       className="shrink-0 rounded-lg p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
@@ -357,9 +462,57 @@ function HabitsSection() {
   );
 }
 
+/* ── Archived tasks section ───────────────────────────────────────── */
+function ArchivedTasksSection() {
+  const { tasks: archivedTasks, update } = useTasks({ archived: true });
+  const [show, setShow] = useState(false);
+
+  if (archivedTasks.length === 0) return null;
+
+  async function handleRestore(taskId) {
+    await update(taskId, { archived: false });
+  }
+
+  return (
+    <div>
+      <button
+        onClick={() => setShow((p) => !p)}
+        className="flex w-full items-center justify-between rounded-xl px-2 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+      >
+        <span className="flex items-center gap-1.5">
+          <Archive size={14} /> Archived ({archivedTasks.length})
+        </span>
+        {show ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+      </button>
+      {show && (
+        <div className="mt-1 overflow-hidden rounded-2xl border border-border bg-card card-shadow divide-y divide-border">
+          {archivedTasks.map((task) => (
+            <div key={task.id} className="flex items-center gap-3 px-4 py-3 opacity-60">
+              <Archive size={15} className="shrink-0 text-muted-foreground" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate line-through text-muted-foreground">{task.title}</p>
+                {task.dueDate && (
+                  <p className="text-xs text-muted-foreground">Due {new Date(task.dueDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</p>
+                )}
+              </div>
+              <button
+                onClick={() => handleRestore(task.id)}
+                className="shrink-0 flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+                title="Restore task"
+              >
+                <ArchiveRestore size={13} /> Restore
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Page ─────────────────────────────────────────────────────────── */
 export default function TasksPage() {
-  const { tasks, create, toggle, archive, addSubtask, toggleSubtask, deleteSubtask } = useTasks({ archived: false });
+  const { tasks, create, toggle, archive, update, addSubtask, toggleSubtask, deleteSubtask } = useTasks({ archived: false });
 
   const [filter,   setFilter]   = useState("all");
   const [showDone, setShowDone] = useState(false);
@@ -419,6 +572,7 @@ export default function TasksPage() {
                 task={task}
                 onToggle={toggle}
                 onArchive={archive}
+                onUpdate={update}
                 onAddSubtask={addSubtask}
                 onToggleSubtask={toggleSubtask}
                 onDeleteSubtask={deleteSubtask}
@@ -452,6 +606,7 @@ export default function TasksPage() {
                     task={task}
                     onToggle={toggle}
                     onArchive={archive}
+                    onUpdate={update}
                     onAddSubtask={addSubtask}
                     onToggleSubtask={toggleSubtask}
                     onDeleteSubtask={deleteSubtask}
@@ -462,6 +617,9 @@ export default function TasksPage() {
           )}
         </div>
       )}
+
+      {/* Archived tasks — restore option */}
+      <ArchivedTasksSection />
     </div>
   );
 }

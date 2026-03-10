@@ -61,6 +61,7 @@ function MarkButtons({ subjectId, marking, onMark, disabled }) {
         { key: "present",   label: "Present",   cls: "bg-green-600 hover:bg-green-700 text-white" },
         { key: "absent",    label: "Absent",    cls: "bg-red-500 hover:bg-red-600 text-white" },
         { key: "cancelled", label: "Cancelled", cls: "border border-border text-muted-foreground hover:bg-accent" },
+        { key: "extra",     label: "Extra",     cls: "bg-blue-500 hover:bg-blue-600 text-white" },
       ].map(({ key, label, cls }) => (
         <button
           key={key}
@@ -77,16 +78,7 @@ function MarkButtons({ subjectId, marking, onMark, disabled }) {
 
 /* ── Mark Today section — grouped by timetable ────────────────────── */
 function MarkToday({ date, day, today, marking, onMark }) {
-  if (today.length === 0) {
-    return (
-      <div className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">
-        No classes scheduled for today ({day}).<br />
-        <span className="text-xs">Add a timetable or set one as active to see scheduled subjects.</span>
-      </div>
-    );
-  }
-
-  // Group by timetable (null timetableName = no active timetable)
+  // useMemo MUST be called before any early return (rules of hooks)
   const groups = useMemo(() => {
     const map = new Map();
     today.forEach((item) => {
@@ -96,6 +88,15 @@ function MarkToday({ date, day, today, marking, onMark }) {
     });
     return [...map.values()];
   }, [today]);
+
+  if (today.length === 0) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+        No classes scheduled for today ({day}).<br />
+        <span className="text-xs">Add a timetable or set one as active to see scheduled subjects.</span>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
@@ -130,14 +131,9 @@ function MarkToday({ date, day, today, marking, onMark }) {
                   </div>
 
                   {alreadyMarked ? (
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col gap-1.5 items-end">
                       <StatusChip status={markedStatus} />
-                      <button
-                        onClick={() => onMark(subject.id, markedStatus === "present" ? "absent" : "present")}
-                        className="text-[10px] text-muted-foreground hover:text-foreground underline"
-                      >
-                        change
-                      </button>
+                      <MarkButtons subjectId={subject.id} marking={marking} onMark={onMark} />
                     </div>
                   ) : (
                     <MarkButtons subjectId={subject.id} marking={marking} onMark={onMark} />
