@@ -20,10 +20,11 @@ jobs:
         run: npm ci
         working-directory: sarasva-frontend
 
-      - name: Build (base = / for Firebase root hosting)
-        run: npm run build -- --base=/
+      - name: Build (VITE_BASE=/ so PWA SW also uses root paths)
+        run: npm run build
         working-directory: sarasva-frontend
         env:
+          VITE_BASE: /
           VITE_FIREBASE_API_KEY: AIzaSyCe85WvMIdGqpB4fQ-5l4c46fikr-EwO5s
           VITE_FIREBASE_AUTH_DOMAIN: sarasva-e25dd.firebaseapp.com
           VITE_FIREBASE_PROJECT_ID: sarasva-e25dd

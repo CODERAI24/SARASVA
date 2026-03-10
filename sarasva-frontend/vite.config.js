@@ -3,8 +3,13 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
 
+// VITE_BASE env var lets CI override the base for different hosts:
+//   GitHub Pages → /SARASVA/  (default)
+//   Firebase Hosting → /
+const base = process.env.VITE_BASE ?? "/SARASVA/";
+
 export default defineConfig({
-  base: "/SARASVA/",
+  base,
   plugins: [
     react(),
     VitePWA({
@@ -17,20 +22,11 @@ export default defineConfig({
         theme_color: "#6366f1",
         background_color: "#0f0e17",
         display: "standalone",
-        start_url: "/SARASVA/",
-        scope: "/SARASVA/",
+        start_url: base,
+        scope: base,
         icons: [
-          {
-            src: "logo.png",
-            sizes: "64x64 192x192 512x512",
-            type: "image/png",
-          },
-          {
-            src: "logo.png",
-            sizes: "512x512",
-            type: "image/png",
-            purpose: "maskable",
-          },
+          { src: "logo.png", sizes: "64x64 192x192 512x512", type: "image/png" },
+          { src: "logo.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
       },
       workbox: {
@@ -39,8 +35,8 @@ export default defineConfig({
         skipWaiting: true,
         clientsClaim: true,
         cleanupOutdatedCaches: true,
-        navigateFallback: "/SARASVA/index.html",
-        navigateFallbackDenylist: [/^\/SARASVA\/assets\//],
+        navigateFallback: `${base}index.html`,
+        navigateFallbackDenylist: [new RegExp(`^${base.replace(/\//g, "\\/")}assets\\/`)],
         runtimeCaching: [
           {
             urlPattern: ({ request }) => request.mode === "navigate",
@@ -63,10 +59,7 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/api": {
-        target: "http://localhost:5000",
-        changeOrigin: true,
-      },
+      "/api": { target: "http://localhost:5000", changeOrigin: true },
     },
   },
 });
