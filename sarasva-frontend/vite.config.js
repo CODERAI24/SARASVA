@@ -3,12 +3,13 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
 
-// VITE_BASE env var lets CI override the base for different hosts:
-//   GitHub Pages → /SARASVA/  (default)
-//   Firebase Hosting → /
-const base = process.env.VITE_BASE ?? "/SARASVA/";
+export default defineConfig(({ mode }) => {
+// mode "firebase" → base "/" (Firebase Hosting, cross-platform via --mode flag)
+// default mode    → "/SARASVA/" (GitHub Pages)
+// CI override still supported via VITE_BASE env var
+const base = (mode === "firebase" || process.env.VITE_BASE === "/") ? "/" : "/SARASVA/";
 
-export default defineConfig({
+return {
   base,
   plugins: [
     react(),
@@ -62,4 +63,5 @@ export default defineConfig({
       "/api": { target: "http://localhost:5000", changeOrigin: true },
     },
   },
-});
+}; // end return
+}); // end defineConfig
